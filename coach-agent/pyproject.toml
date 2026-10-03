@@ -19,7 +19,7 @@ dev = ["pytest>=7"]
 coach = "ingest.cli:app"
 
 [tool.setuptools.packages.find]
-include = ["config*", "schemas*", "store*", "engine*", "ingest*"]
+include = ["config*", "schemas*", "store*", "engine*", "ingest*", "approvals*", "llm*"]
 
 [tool.setuptools.package-data]
 config = ["*.json"]

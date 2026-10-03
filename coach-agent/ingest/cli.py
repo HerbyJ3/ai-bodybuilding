@@ -7,6 +7,7 @@ from pathlib import Path
 
 import typer
 
+from approvals.queue import ApprovalQueue, QueueError
 from config.loader import load_config
 from engine import history_review
 from engine import proposals as proposal_engine
@@ -73,6 +74,93 @@ def review_cmd(client_id: str, as_of: str, db: Path = DEFAULT_DB, full: bool = F
     else:
         for f in rev["findings"]:
             typer.echo(f"[{f['area']}] {f['finding']}")
+
+
+queue_app = typer.Typer(no_args_is_help=True, help="Approval queue: coach approves, rejects or modifies proposals")
+app.add_typer(queue_app, name="queue")
+
+
+def _queue(db: Path) -> ApprovalQueue:
+    return ApprovalQueue(EventStore(db), load_config())
+
+
+def _line(item) -> str:
+    p = item.proposal
+    flags = f"  flags: {', '.join(p.data_quality_flags)}" if p.data_quality_flags else ""
+    return (f"{p.proposal_id[:8]}  {item.status:<10} {p.confidence:<6} {p.action:<22} "
+            f"{p.target:<22} {p.rationale_short}{flags}")
+
+
+@queue_app.command("refresh")
+def queue_refresh(client_id: str, as_of: str, db: Path = DEFAULT_DB) -> None:
+    """Run the rules engine and add new proposals to the queue."""
+    q = _queue(db)
+    try:
+        q.refresh(client_id, date.fromisoformat(as_of))
+    except QueueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    for item in q.pending(client_id):
+        typer.echo(_line(item))
+
+
+@queue_app.command("list")
+def queue_list(client_id: str, db: Path = DEFAULT_DB,
+               all_: bool = typer.Option(False, "--all", help="include decided, superseded and info")) -> None:
+    """List pending proposals (with --all: everything)."""
+    q = _queue(db)
+    items = q.items(client_id) if all_ else q.pending(client_id)
+    if not items:
+        typer.echo("nothing pending")
+    for item in items:
+        typer.echo(_line(item))
+
+
+def _resolve(q: ApprovalQueue, prefix: str) -> str:
+    rows = q.store._db.execute("SELECT proposal_id FROM proposals WHERE proposal_id LIKE ?",
+                               (prefix + "%",)).fetchall()
+    if len(rows) != 1:
+        typer.echo(f"{'no' if not rows else 'ambiguous'} proposal matching '{prefix}'", err=True)
+        raise typer.Exit(1)
+    return rows[0][0]
+
+
+@queue_app.command("show")
+def queue_show(proposal_id: str, db: Path = DEFAULT_DB) -> None:
+    """Show a proposal in full: inputs, config keys, confidence, rationale."""
+    q = _queue(db)
+    item = q.get(_resolve(q, proposal_id))
+    typer.echo(json.dumps({"status": item.status, **json.loads(item.proposal.model_dump_json())}, indent=2))
+
+
+def _decide(proposal_id: str, decision: str, note: str, value: str | None, db: Path) -> None:
+    q = _queue(db)
+    try:
+        q.decide(_resolve(q, proposal_id), decision, note, json.loads(value) if value else None)
+    except (QueueError, json.JSONDecodeError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    typer.echo(f"{decision}: {proposal_id}")
+
+
+@queue_app.command("approve")
+def queue_approve(proposal_id: str, note: str = "", db: Path = DEFAULT_DB) -> None:
+    """Approve as proposed (an id prefix is enough)."""
+    _decide(proposal_id, "approved", note, None, db)
+
+
+@queue_app.command("reject")
+def queue_reject(proposal_id: str, note: str = typer.Option(..., help="why (required)"),
+                 db: Path = DEFAULT_DB) -> None:
+    """Reject with a note."""
+    _decide(proposal_id, "rejected", note, None, db)
+
+
+@queue_app.command("modify")
+def queue_modify(proposal_id: str, value: str = typer.Option(..., help="JSON value that takes effect"),
+                 note: str = typer.Option(..., help="why (required)"), db: Path = DEFAULT_DB) -> None:
+    """Approve with the coach's own value (JSON) and a note."""
+    _decide(proposal_id, "modified", note, value, db)
 
 
 if __name__ == "__main__":

@@ -111,6 +111,8 @@ class ProposalDecided(_Payload):
     proposal_id: str
     decision: Literal["approved", "rejected", "modified"]
     coach_note: str = ""
+    proposal: dict[str, Any] | None = None  # snapshot of what was decided (audit + LLM layer)
+    final_value: Any = None  # the value that takes effect (coach's value when modified)
 
 
 # --- added for mid-program onboarding (BUILD_SPEC §13) -----------------------

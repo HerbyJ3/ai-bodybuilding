@@ -1,7 +1,7 @@
 # Open Items
 
 ## Decisions needed
-- [ ] LLM provider
+- [x] LLM provider: **Claude** (Anthropic API), owner decision 2026-10-03
 - [ ] Initial maintenance formula (BMR × activity) before history exists. `maintenance.initial_estimate` raises until decided
 - [x] Persona name: **Mr. J** (2026-10-03). Branding still open
 - [ ] DB encryption mechanism for production

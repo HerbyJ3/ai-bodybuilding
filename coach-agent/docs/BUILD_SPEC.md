@@ -74,7 +74,7 @@ Defaults (confirm before M0, **[DECIDE]**):
 - **Models/validation:** Pydantic v2
 - **Storage:** SQLite for development (events as rows with a JSON payload), with a Postgres-ready design
 - **Tests:** pytest
-- **LLM provider:** **[DECIDE]**. Keep it behind a single `llm/client.py` interface so it can be swapped
+- **LLM provider:** **Claude** (Anthropic API), decided 2026-10-03. Keep it behind a single `llm/client.py` interface so it can be swapped
 - **Interface v1:** CLI (Typer). A web UI comes later
 
 ---
@@ -147,7 +147,7 @@ Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client`
 | `cardio_logged` | date, modality, minutes, intensity (low/mod/high), est_kcal (optional) | Each session |
 | `phase_started` | phase (gain/cut/maintenance/mini_cut/recomp), target_rate_pct_bw, planned_weeks | Coach action |
 | `meso_started` | meso_id, weeks_planned, exercises per muscle, starting sets per muscle | Coach action |
-| `proposal_decided` | proposal_id, decision (approved/rejected/modified), coach_note | Coach action |
+| `proposal_decided` | proposal_id, decision (approved/rejected/modified), coach_note, proposal (snapshot), final_value | Coach action |
 | `consent_recorded` | granted, scope[], note | Before any ingest (§9) |
 | `deload_completed` | start_date, end_date, meso_id? | Coach action / onboarding import |
 | `nutrition_targets_set` | macros_by_day_type {day_type: protein_g, carb_g, fat_g}, proposal_id? | Coach action / onboarding import |
@@ -250,6 +250,7 @@ Flag rather than fail. Flags lower proposal confidence:
 ## 9. Human-in-the-loop & privacy
 
 - **Approval queue:** a CLI command lists pending proposals per client with inputs, confidence, and rationale. The coach can approve, reject, or modify (with a note). Decisions are logged as events.
+- **Queue mechanics (`approvals/queue.py`, CLI `coach queue refresh|list|show|approve|reject|modify`):** `refresh` stores engine proposals in a `proposals` cache table. Status is derived from `proposal_decided` events (pending / approved / rejected / modified, plus `superseded` when a newer proposal targets the same thing and `info` for holds). Reject and modify require a note. `proposal_decided` carries a snapshot of the proposal and the `final_value`. Approved calorie changes also write `nutrition_targets_set`. An approved phase transition writes `phase_started`, which needs `planned_weeks`, so it is done with `modify`. Volume, deload and adherence decisions are instructions to the client; the decision event is the record.
 - **Auto-approval:** off in v1. Later, allow per-rule auto-approval for low-risk, high-confidence proposals only **[DECIDE]**.
 - **Privacy** (client data is personal health information):
   - `data/`, `*.db`, `sources/`, and `*.pdf` are gitignored. Never commit real client data or source books.
