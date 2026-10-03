@@ -11,6 +11,12 @@
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
 
+## Found by the first real-data test (2026-10-03) — rule changes, owner decision needed
+- [ ] **No step cap on calorie changes.** §7.2 closes the whole rate gap in one adjustment (−491 kcal/day for the test client). Coaching practice in the record: one lever at a time, sized above the scale's noise floor. Add a max change per adjustment?
+- [ ] **Missing adherence data doesn't lower confidence.** With no check-ins, the adherence gate is skipped and confidence stays high. Treat "no recent check-in" as a confidence flag?
+- [ ] **Day-type mapping.** The client's training-day carbs (190 g) are already below the book's `moderate` minimum (1.0 g/lb ≈ 207 g), so cuts fall entirely on rest days (130 → 62 g). Which day type a client's "training day" maps to (light vs moderate) needs a coach rule
+- [ ] **Cardio levers.** The engine never proposes cardio changes (§7.4, by design). The client's method uses cardio frequency/duration before carbs. Keep the engine nutrition-only, or add cardio as a coach-approved lever?
+
 ## Provisional (not from source books)
 Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] `adherence_threshold_pct`: adherence that blocks calorie changes (85)
