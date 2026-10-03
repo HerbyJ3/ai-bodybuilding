@@ -90,7 +90,11 @@ coach-agent/
 ├── persona/coach-profile.md
 ├── prompts/system.md
 ├── knowledge/                 ← existing; JSON + RAG notes
-├── schemas/                   ← Pydantic models (events, state, proposals)
+├── config/
+│   ├── loader.py              ← reads knowledge/*.json + engine-settings.json
+│   └── engine-settings.json   ← values NOT in knowledge/ (each has _source/_provisional)
+├── schemas/                   ← Pydantic models (events, state, proposals, onboarding)
+├── store/event_store.py       ← append-only SQLite event store
 ├── engine/
 │   ├── state_builder.py
 │   ├── training/
@@ -105,6 +109,7 @@ coach-agent/
 │   │   └── phases.py          ← phase lengths, transitions
 │   ├── cardio.py              ← PROVISIONAL rules (see §7.4)
 │   ├── data_quality.py
+│   ├── cold_start.py          ← onboarding gates (§13.5)
 │   └── proposals.py
 ├── llm/
 │   ├── client.py
@@ -112,7 +117,9 @@ coach-agent/
 │   └── retrieval.py
 ├── ingest/
 │   ├── cli.py
-│   └── csv_import.py
+│   ├── csv_import.py
+│   └── onboarding.py          ← mid-program onboarding (§13)
+├── samples/                   ← synthetic sample clients (committed; never real data)
 ├── approvals/queue.py
 ├── evals/scenarios.yaml
 ├── tests/
@@ -124,7 +131,7 @@ coach-agent/
 ## 6. Data model
 
 ### 6.1 Events (append-only)
-Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client` | `coach` | `import`), and `payload`.
+Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client` | `coach` | `import`), `recorded_at`, and `payload`. `timestamp` is when the event took effect (backdated for imports). `recorded_at` is when it was written. `event_id` is derived from the content, so re-importing the same row is a no-op.
 
 | Event type | Payload | Collected |
 |---|---|---|
@@ -140,6 +147,11 @@ Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client`
 | `phase_started` | phase (gain/cut/maintenance/mini_cut/recomp), target_rate_pct_bw, planned_weeks | Coach action |
 | `meso_started` | meso_id, weeks_planned, exercises per muscle, starting sets per muscle | Coach action |
 | `proposal_decided` | proposal_id, decision (approved/rejected/modified), coach_note | Coach action |
+| `consent_recorded` | granted, scope[], note | Before any ingest (§9) |
+| `deload_completed` | start_date, end_date, meso_id? | Coach action / onboarding import |
+| `nutrition_targets_set` | macros_by_day_type {day_type: protein_g, carb_g, fat_g}, proposal_id? | Coach action / onboarding import |
+| `profile_updated` | training_age (beginner/intermediate/advanced) | Coach action / onboarding import |
+| `onboarding_completed` | as_of, meso_id, current_meso_week, last_deload_date, phase, current_phase_week, imported_event_counts, data_quality_codes | Onboarding (§13) |
 
 ### 6.2 Derived state (`ClientState`, rebuilt from events)
 - Current phase, phase week, target rate, and phase start
@@ -160,9 +172,12 @@ proposal_id: str
 client_id: str
 rule_id: str              # e.g. "training.set_progression"
 target: str               # e.g. "volume.chest", "calories.cut", "phase"
+action: str               # add_sets | hold | recovery | reduce_sets | deload | decrease_calories |
+                          # increase_calories | adherence_intervention | transition_phase | flag
 current_value: any
 proposed_value: any
 inputs_used: dict         # exact values the rule consumed
+config_keys: [str]        # JSON keys the rule read (§12)
 confidence: high | medium | low
 data_quality_flags: []
 rationale_short: str      # 1 line, plain language; the LLM expands it later
@@ -254,7 +269,7 @@ Flag rather than fail. Flags lower proposal confidence:
 | M3 | Training rules | MEV estimator, set progression (**every matrix cell tested**), meso RIR schedule, fatigue/deload |
 | M4 | Nutrition rules | Macros, weekly adjustment, maintenance calibration, phase transitions; tests per rule |
 | M5 | Data quality + proposals | Flags, confidence scoring, low-confidence restrictions enforced |
-| M6 | CSV import | Import months of historical logs with a column-mapping config; synthetic sample CSV included |
+| M6 | CSV import + mid-program onboarding | Import months of historical logs with a column-mapping config; synthetic sample CSV included; onboarding flow per §13 with the synthetic mid-cut sample client |
 | M7 | Approval queue CLI | List/approve/reject/modify; decisions stored as events |
 | M8 | LLM layer | Prompt builder, retrieval, chat CLI that explains approved proposals |
 | M9 | Evals | `evals/scenarios.yaml` runner checks engine outputs + LLM guardrail behavior |
@@ -288,3 +303,49 @@ Flag rather than fail. Flags lower proposal confidence:
 - New provisional values: mark them in the JSON as `"_provisional": true` and list them in `docs/OPEN_ITEMS.md`.
 - Don't modify `persona/` or `knowledge/` content without owner approval.
 - Small commits per milestone. Update this spec if the design changes.
+
+---
+
+## 13. Mid-program onboarding
+
+A client who arrives mid-phase and mid-mesocycle (e.g. moving from another app or coach) has to resume where they are. Their history must be imported without inventing events they never logged.
+
+### 13.1 Input (`schemas/onboarding.py`, sample: `samples/mid_cut_client/onboarding.json`)
+- `client_id`, `as_of` (onboarding date)
+- `consent` (granted, scope). Onboarding refuses to ingest anything without it (§9)
+- `training_age` (optional)
+- `phase`: phase, target_rate_pct_bw, planned_weeks, **current_phase_week**
+- `meso`: meso_id, weeks_planned (accumulation weeks, deload excluded), **current_week**, **last_deload_date** (date the last deload week ended; `null` if unknown). Optional: exercises_per_muscle and starting_sets_per_muscle
+- `nutrition_targets` (optional): current macros per day type
+- `history`: CSV directory + column-mapping JSON (M6 format, see `ingest/csv_import.py`)
+
+### 13.2 Flow (`ingest/onboarding.py`)
+1. Write a `consent_recorded` event (source=`coach`).
+2. Import CSV history. Every imported event has `source=import`. Rows that fail validation are rejected and listed in the report, never dropped silently. Rows dated after `as_of` are skipped with a warning.
+3. Write backdated structure events, all `source=import`:
+   - `phase_started` at `as_of − 7 × (current_phase_week − 1)` days
+   - `meso_started` at `as_of − 7 × (current_week − 1)` days. If exercises or sets are not supplied, they are inferred from meso week 1 set logs (fallback: the latest full week). The report lists what was inferred
+   - `deload_completed` ending on `last_deload_date`, with its length taken from `fatigue_management.deload.length`
+   - `profile_updated` / `nutrition_targets_set` when supplied
+   - `onboarding_completed` (at the end of `as_of`)
+4. Run `data_quality` over the whole imported history and report it (§13.4).
+5. Build state and run the rules engine with the cold-start gates (§13.5). The first proposals go into the report.
+
+Validation: a `current_week` greater than `weeks_planned + 1` (past the deload week) is an error. A last deload on or after the derived meso start is an error. A gap between deload end and meso start larger than `data_quality.max_gap_days` is a warning, as is a missing deload date. Onboarding is idempotent: re-running it writes nothing new.
+
+### 13.3 RIR resume
+The meso week always derives from the backdated `meso_started`. The state builder therefore gives the correct week and `rir_target` on the onboarding date and on every date after it. On the final accumulation week the schedule deload trigger fires, and the week after that is the deload week (RIR `None`). Nothing is stored as "current week", so nothing drifts.
+
+### 13.4 Gap report
+The report contains import counts per stream and rejected rows, the backdated events, warnings, all data-quality flags (merged into date ranges), counts by flag code, and the `stream_gap` list. These are the §7.5 flags, run over the full history. Implausible weigh-ins are excluded from the weight trend.
+
+### 13.5 Cold-start rules (`engine/cold_start.py`)
+- **Nutrition:** nutrition proposals (weekly adjustment, phase transitions) run once ≥ `tracking.min_weeks_before_trend` (2) contiguous recent weeks each have ≥ `tracking.weigh_ins_per_week[0]` weigh-ins. Until then the engine emits one `hold` (`rule_id: nutrition.cold_start`). This is the existing §7.2 step 2 requirement, applied to every client.
+- **Training:** for onboarded clients, every training autoregulation proposal (MEV estimator, set progression, recovery, and the performance-triggered deload) is a `hold` per muscle. It stays that way until the muscle has `cold_start.training_min_rated_weeks` (2) rated weeks: meso weeks with both a soreness rating and a derived performance score (§6.3), no more than `cold_start.max_days_between_rated_weeks` apart. Imported history counts if it passes the same test. Once a muscle qualifies, it stays qualified. A held `recovery` / `reduce_sets` carries `fatigue_signal_during_cold_start` for coach review. The schedule-based deload (final RIR week) is **not** gated.
+- Scope (`cold_start.applies_to`): `onboarded_clients` (default), so fresh clients keep §7.1 behavior unchanged. `all_clients` is available. **[DECIDE]** pending owner confirmation.
+
+### 13.6 Synthetic sample client
+`samples/generate_mid_cut_client.py` deterministically generates `samples/mid_cut_client/*.csv`. A test checks that the committed files match the generator. The client is in week 7 of a 12-week cut (target 0.75 %BW/wk, actually ~0.3 %/wk) and week 3 of a 5-week meso, with the last deload ending 2026-09-13. The data contains a vacation gap in every stream, a weigh-in typo, a sparse weigh-in week, a sparse intake week, no soreness ratings, and one invalid check-in row.
+
+CLI: `coach onboard samples/mid_cut_client/onboarding.json --db data/coach.db --report data/report.json`
+

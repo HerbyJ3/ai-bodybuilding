@@ -1,0 +1,30 @@
+{
+  "client_id": "SYN-CUT-01",
+  "as_of": "2026-09-28",
+  "consent": {
+    "granted": true,
+    "scope": ["training_logs", "nutrition_logs", "bodyweight", "history_import"],
+    "note": "synthetic test client"
+  },
+  "training_age": "intermediate",
+  "phase": {
+    "phase": "cut",
+    "target_rate_pct_bw": 0.75,
+    "planned_weeks": 12,
+    "current_phase_week": 7
+  },
+  "meso": {
+    "meso_id": "SYN-CUT-01-m4",
+    "weeks_planned": 5,
+    "current_week": 3,
+    "last_deload_date": "2026-09-13"
+  },
+  "nutrition_targets": {
+    "non_training": {"protein_g": 190, "carb_g": 150, "fat_g": 70},
+    "moderate": {"protein_g": 190, "carb_g": 230, "fat_g": 65}
+  },
+  "history": {
+    "csv_dir": ".",
+    "mapping": "mapping.json"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "purpose": "Engine settings NOT found in knowledge/*.json. Every entry carries _source and _provisional. Provisional entries are listed in docs/OPEN_ITEMS.md. knowledge/ files stay untouched (owner approval required).",
+    "verified": "2026-10-03"
+  },
+  "adherence_threshold_pct": {
+    "value": 85,
+    "_provisional": true,
+    "_source": "placeholder; OPEN_ITEMS 'Adherence threshold that blocks calorie changes'"
+  },
+  "data_quality": {
+    "value": {
+      "min_intake_days_per_week": 5,
+      "max_gap_days": 7,
+      "implausible_daily_weight_change_pct": 3.0,
+      "rir_valid_range": [0, 10]
+    },
+    "_provisional": true,
+    "_source": "BUILD_SPEC §7.5 (min weigh-ins/week is read from nutrition tracking.weigh_ins_per_week[0])"
+  },
+  "confidence": {
+    "value": {
+      "lookback_days": 21,
+      "medium_at_flag_count": 1,
+      "low_at_flag_count": 2
+    },
+    "_provisional": true,
+    "_source": "placeholder scoring for BUILD_SPEC §7.5 'flags lower proposal confidence'"
+  },
+  "cold_start": {
+    "value": {
+      "training_min_rated_weeks": 2,
+      "max_days_between_rated_weeks": 14,
+      "applies_to": "onboarded_clients"
+    },
+    "_provisional": false,
+    "_source": "owner request 2026-10-03 (mid-program onboarding). Nutrition gate reads tracking.min_weeks_before_trend. 'applies_to' pending owner confirmation, see OPEN_ITEMS"
+  },
+  "training": {
+    "value": {
+      "cut_max_set_addition_non_beginner": 1,
+      "deload_min_muscles_needing_recovery": 2,
+      "rir_interpolation": "linear"
+    },
+    "_provisional": true,
+    "_source": "ch7 says 'smaller set additions' in a cut and ch3 says MRV hit on 'multiple muscles'; no numbers given. RIR between week 1 and final week is not tabulated"
+  },
+  "phase_transition": {
+    "value": {
+      "hunger_threshold": 4,
+      "performance_falling_score": 2
+    },
+    "_provisional": true,
+    "_source": "placeholder signals for 'past recommended cut length + fatigue' (BUILD_SPEC §11)"
+  },
+  "maintenance_confidence": {
+    "value": {
+      "high": {"min_intake_days_per_week": 6, "min_weigh_ins_per_week": 3},
+      "medium": {"min_intake_days_per_week": 5, "min_weigh_ins_per_week": 2}
+    },
+    "_provisional": true,
+    "_source": "placeholder for BUILD_SPEC §7.3 confidence"
+  },
+  "cardio": {
+    "value": {
+      "kcal_per_min_by_intensity": {"low": 5, "mod": 8, "high": 11}
+    },
+    "_provisional": true,
+    "_source": "BUILD_SPEC §7.4 — not from either source book"
+  },
+  "energy": {
+    "value": {
+      "kcal_per_g": {"protein": 4, "carb": 4, "fat": 9}
+    },
+    "_provisional": true,
+    "_source": "standard Atwater factors; not stated in knowledge JSON"
+  }
+}

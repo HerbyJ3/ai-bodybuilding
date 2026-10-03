@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coach-agent"
+version = "0.1.0"
+description = "Hypertrophy & physique coach agent: deterministic rules engine + event store"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5",
+    "typer>=0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+coach = "ingest.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["config*", "schemas*", "store*", "engine*", "ingest*"]
+
+[tool.setuptools.package-data]
+config = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,16 @@
+# Client data and source material — never commit (BUILD_SPEC §9)
+data/
+*.db
+*.sqlite
+*.sqlite3
+sources/
+*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
