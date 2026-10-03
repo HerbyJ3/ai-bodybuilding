@@ -7,9 +7,9 @@
 - [ ] DB encryption mechanism for production
 - [ ] Auto-approval policy (post-v1)
 - [ ] Tech stack: built with the BUILD_SPEC §4 defaults (Python 3.11, Pydantic v2, SQLite, pytest, Typer). Confirm
-- [ ] Training cold-start scope (`cold_start.applies_to`): currently `onboarded_clients` only, so fresh clients keep §7.1 unchanged. Switch to `all_clients`?
-- [ ] Training cold-start: should imported ratings count toward the 2 rated weeks? Currently yes, if the run has no gap > 14 days
-- [ ] Cold start holds `recovery` too (per the request "stay hold"). It is flagged `fatigue_signal_during_cold_start` for coach review. Confirm, or let recovery through
+
+## Deferred
+- [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
 
 ## Provisional (not from source books)
 Values live in `config/engine-settings.json` (`_provisional: true`). Keys:

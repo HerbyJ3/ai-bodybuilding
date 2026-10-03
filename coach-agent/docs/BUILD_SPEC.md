@@ -339,7 +339,9 @@ The meso week always derives from the backdated `meso_started`. The state builde
 ### 13.4 Gap report
 The report contains import counts per stream and rejected rows, the backdated events, warnings, all data-quality flags (merged into date ranges), counts by flag code, and the `stream_gap` list. These are the §7.5 flags, run over the full history. Implausible weigh-ins are excluded from the weight trend.
 
-### 13.5 Cold-start rules (`engine/cold_start.py`)
+### 13.5 Cold-start rules (`engine/cold_start.py`) — DEFERRED, see OPEN_ITEMS
+The owner has deferred the cold-start design. The rules below are implemented as a placeholder and can change.
+
 - **Nutrition:** nutrition proposals (weekly adjustment, phase transitions) run once ≥ `tracking.min_weeks_before_trend` (2) contiguous recent weeks each have ≥ `tracking.weigh_ins_per_week[0]` weigh-ins. Until then the engine emits one `hold` (`rule_id: nutrition.cold_start`). This is the existing §7.2 step 2 requirement, applied to every client.
 - **Training:** for onboarded clients, every training autoregulation proposal (MEV estimator, set progression, recovery, and the performance-triggered deload) is a `hold` per muscle. It stays that way until the muscle has `cold_start.training_min_rated_weeks` (2) rated weeks: meso weeks with both a soreness rating and a derived performance score (§6.3), no more than `cold_start.max_days_between_rated_weeks` apart. Imported history counts if it passes the same test. Once a muscle qualifies, it stays qualified. A held `recovery` / `reduce_sets` carries `fatigue_signal_during_cold_start` for coach review. The schedule-based deload (final RIR week) is **not** gated.
 - Scope (`cold_start.applies_to`): `onboarded_clients` (default), so fresh clients keep §7.1 behavior unchanged. `all_clients` is available. **[DECIDE]** pending owner confirmation.
