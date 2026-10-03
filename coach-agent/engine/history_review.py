@@ -229,6 +229,58 @@ def phase_review(events: list[Event], state: ClientState, cfg: Config,
     return out
 
 
+# --- macro target changes -------------------------------------------------------------
+
+def _window_avgs(weigh: list[tuple[date, float]], anchor: date, n: int, after: bool,
+                 min_n: int) -> list[float]:
+    """Contiguous 7-day window averages moving away from `anchor` (after: anchor onward;
+    before: the days just before anchor). Stops at the first window without enough weigh-ins."""
+    out = []
+    for k in range(n):
+        lo = anchor + timedelta(days=7 * k) if after else anchor - timedelta(days=7 * (k + 1))
+        vals = [w for d, w in weigh if lo <= d < lo + timedelta(days=7)]
+        if len(vals) < min_n:
+            break
+        out.append(sum(vals) / len(vals))
+    return out
+
+
+def _rate(avgs: list[float], chronological: bool) -> float | None:
+    if len(avgs) < 2:
+        return None
+    seq = avgs if chronological else list(reversed(avgs))
+    return round((seq[-1] - seq[0]) / (len(seq) - 1), 2)
+
+
+def macro_changes(events: list[Event], state: ClientState, cfg: Config,
+                  excluded: set[str]) -> list[dict[str, Any]]:
+    """Each change to prescribed macros, with the bodyweight trend in the weeks before and
+    after it. Descriptive only: water shifts after a carb change are part of what it shows."""
+    min_n = cfg.nutrition("tracking.weigh_ins_per_week")[0]
+    n = cfg.nutrition("tracking.assess_window_weeks")[1]
+    kcal = cfg.setting("energy.kcal_per_g")
+    weigh = [(e.day, to_lb(e.payload.weight, e.payload.unit)) for e in events
+             if e.type == "weigh_in" and e.event_id not in excluded]
+    out = []
+    for c in state.target_changes:
+        if c.before is None:
+            continue
+        diff = {k: round(getattr(c.after, k) - getattr(c.before, k)) for k in ("protein_g", "carb_g", "fat_g")}
+        before = _window_avgs(weigh, c.date, n, after=False, min_n=min_n)
+        after = _window_avgs(weigh, c.date, n, after=True, min_n=min_n)
+        out.append({
+            "date": c.date, "day_type": c.day_type, "note": c.note,
+            "before": c.before.model_dump(), "after": c.after.model_dump(), "change_g": diff,
+            "kcal_change": round(diff["protein_g"] * kcal["protein"] + diff["carb_g"] * kcal["carb"]
+                                 + diff["fat_g"] * kcal["fat"]),
+            "lb_per_week_before": _rate(before, chronological=False),
+            "weeks_before": len(before),
+            "lb_per_week_after": _rate(after, chronological=True),
+            "weeks_after": len(after),
+        })
+    return out
+
+
 # --- data habits -------------------------------------------------------------------
 
 def data_habits(events: list[Event], state: ClientState) -> dict[str, Any]:
@@ -254,11 +306,26 @@ def data_habits(events: list[Event], state: ClientState) -> dict[str, Any]:
 
 # --- findings -------------------------------------------------------------------------
 
-def findings(training: dict, phases: list[dict], habits: dict, cfg: Config) -> list[dict[str, str]]:
+def findings(training: dict, phases: list[dict], habits: dict, cfg: Config,
+             changes: list[dict] | None = None, limitations: list[dict] | None = None
+             ) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
 
     def add(area: str, text: str) -> None:
         out.append({"area": area, "finding": text})
+
+    for lim in limitations or []:
+        add("limitations", f"{lim['area']}: {'; '.join(lim['restrictions'])}")
+    for c in changes or []:
+        moved = ", ".join(f"{k.removesuffix('_g')} {c['before'][k]:g}→{c['after'][k]:g}g"
+                          for k in ("protein_g", "carb_g", "fat_g") if c["change_g"][k])
+        trend = []
+        for side in ("before", "after"):
+            r = c[f"lb_per_week_{side}"]
+            trend.append(f"{r:+.2f} lb/wk over {c[f'weeks_{side}']} wk {side}" if r is not None
+                         else f"not enough weigh-ins {side}")
+        add("nutrition", f"{c['date']} {c['day_type']} targets: {moved} ({c['kcal_change']:+d} kcal/day); "
+                         f"weight trend {trend[0]} vs {trend[1]}")
 
     for p in phases:
         if p.get("rate_vs_band") in ("below", "above"):
@@ -320,5 +387,8 @@ def review(events: list[Event], state: ClientState, cfg: Config,
     training = training_review(events, state, cfg, excluded)
     phases = phase_review(events, state, cfg, excluded)
     habits = data_habits(events, state)
+    changes = macro_changes(events, state, cfg, excluded)
+    limitations = [lim.model_dump() for lim in state.limitations]
     return {"as_of": state.as_of, "training": training, "phases": phases,
-            "data_habits": habits, "findings": findings(training, phases, habits, cfg)}
+            "macro_changes": changes, "limitations": limitations, "data_habits": habits,
+            "findings": findings(training, phases, habits, cfg, changes, limitations)}

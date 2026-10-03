@@ -48,6 +48,14 @@ class PastPhaseInput(_In):
     planned_weeks: int = Field(gt=0)
 
 
+class LimitationInput(_In):
+    limitation_id: str
+    area: str
+    description: str = ""
+    restrictions: list[str] = Field(min_length=1)
+    since: date | None = None  # defaults to as_of
+
+
 class ImportInput(_In):
     csv_dir: str
     mapping: str
@@ -59,7 +67,8 @@ class OnboardingConfig(_In):
     consent: ConsentInput
     training_age: TrainingAge | None = None
     phase: PhaseInput
-    meso: MesoInput
+    meso: MesoInput | None = None  # None: no mesocycle structure (training rules stay inactive)
+    limitations: list[LimitationInput] = Field(default_factory=list)
     nutrition_targets: dict[DayType, MacroTargets] | None = None
     past_mesos: list[PastMesoInput] = Field(default_factory=list)
     past_phases: list[PastPhaseInput] = Field(default_factory=list)

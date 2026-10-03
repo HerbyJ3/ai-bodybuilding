@@ -142,8 +142,20 @@ class MacroTargets(_Payload):
 
 
 class NutritionTargetsSet(_Payload):
+    """Prescribed macros. Day types not listed keep their previous targets."""
     macros_by_day_type: dict[DayType, MacroTargets]
     proposal_id: str | None = None
+    note: str = ""
+
+
+class LimitationRecorded(_Payload):
+    """A physical limitation that restricts movement or equipment (injury, condition).
+    Re-recording the same limitation_id replaces it; active=False resolves it."""
+    limitation_id: str = Field(min_length=1)
+    area: str = Field(min_length=1)  # e.g. "cervical spine (C5/C6)"
+    description: str = ""
+    restrictions: list[str] = Field(min_length=1)  # e.g. ["no free weights"]
+    active: bool = True
 
 
 class ProfileUpdated(_Payload):
@@ -152,8 +164,8 @@ class ProfileUpdated(_Payload):
 
 class OnboardingCompleted(_Payload):
     as_of: date
-    meso_id: str
-    current_meso_week: int = Field(ge=1)
+    meso_id: str | None  # None: client has no mesocycle structure yet
+    current_meso_week: int | None = Field(default=None, ge=1)
     last_deload_date: date | None
     phase: PhaseName
     current_phase_week: int = Field(ge=1)
@@ -178,6 +190,7 @@ PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     "deload_completed": DeloadCompleted,
     "nutrition_targets_set": NutritionTargetsSet,
     "profile_updated": ProfileUpdated,
+    "limitation_recorded": LimitationRecorded,
     "onboarding_completed": OnboardingCompleted,
 }
 EventType = Literal[
@@ -185,7 +198,7 @@ EventType = Literal[
     "joint_pain_reported", "weigh_in", "intake_logged", "weekly_checkin",
     "cardio_logged", "phase_started", "meso_started", "proposal_decided",
     "consent_recorded", "deload_completed", "nutrition_targets_set",
-    "profile_updated", "onboarding_completed",
+    "profile_updated", "onboarding_completed", "limitation_recorded",
 ]
 
 

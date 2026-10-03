@@ -63,6 +63,23 @@ class MuscleWeek(BaseModel):
     stimulus_total: int | None = None
 
 
+class Limitation(BaseModel):
+    limitation_id: str
+    area: str
+    description: str
+    restrictions: list[str]
+    since: date
+
+
+class TargetChange(BaseModel):
+    date: date
+    day_type: str
+    before: MacroTargets | None
+    after: MacroTargets
+    note: str = ""
+    source: str
+
+
 class DataQualityFlag(BaseModel):
     code: str
     stream: str
@@ -84,6 +101,8 @@ class ClientState(BaseModel):
     maintenance: MaintenanceEstimate | None = None
     avg_intake_kcal: float | None = None
     current_macros: dict[DayType, MacroTargets] | None = None
+    target_changes: list[TargetChange] = Field(default_factory=list)  # oldest first
+    limitations: list[Limitation] = Field(default_factory=list)  # active only
     meso: MesoState | None = None
     last_deload_end: date | None = None
     muscle_weeks: dict[str, list[MuscleWeek]] = Field(default_factory=dict)  # oldest first

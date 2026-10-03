@@ -34,7 +34,11 @@ from pydantic import ValidationError
 from schemas.events import PAYLOAD_MODELS, Event, Source, make_event
 
 IMPORTABLE = {"set_logged", "stimulus_rated", "soreness_rated", "joint_pain_reported",
-              "weigh_in", "intake_logged", "weekly_checkin", "cardio_logged"}
+              "weigh_in", "intake_logged", "weekly_checkin", "cardio_logged",
+              "nutrition_targets_set"}
+# nutrition_targets_set is imported one row per (date, day_type); rows with the same
+# date become one event. Its mapping uses these row fields instead of payload fields.
+TARGET_ROW_FIELDS = {"day_type", "protein_g", "carb_g", "fat_g", "note"}
 
 
 class MappingError(ValueError):
@@ -76,7 +80,8 @@ def load_mapping(path: str | Path) -> dict[str, Any]:
             raise MappingError(f"stream '{etype}' is not importable")
         if "file" not in spec or "date_column" not in spec:
             raise MappingError(f"stream '{etype}' needs 'file' and 'date_column'")
-        model_fields = set(PAYLOAD_MODELS[etype].model_fields)
+        model_fields = (TARGET_ROW_FIELDS if etype == "nutrition_targets_set"
+                        else set(PAYLOAD_MODELS[etype].model_fields))
         unknown = set(spec.get("fields", {})) - model_fields
         if unknown:
             raise MappingError(f"stream '{etype}': unknown payload fields {sorted(unknown)}")
@@ -97,6 +102,40 @@ def _cell(row: dict[str, str], fspec: dict[str, Any]) -> Any:
     return raw
 
 
+def _import_targets(client_id: str, path: Path, spec: dict[str, Any], fmt: str,
+                    rep: StreamReport, recorded_at: datetime) -> list[Event]:
+    by_date: dict[date, dict[str, Any]] = {}
+    with path.open(newline="", encoding="utf-8") as f:
+        for i, row in enumerate(csv.DictReader(f), start=2):
+            rep.rows_read += 1
+            try:
+                d = datetime.strptime(row[spec["date_column"]].strip(), fmt).date()
+                vals = {name: _cell(row, fspec) for name, fspec in spec.get("fields", {}).items()}
+                day_type = vals.get("day_type")
+                grp = by_date.setdefault(d, {"macros": {}, "notes": [], "rows": []})
+                grp["macros"][day_type] = {k: vals.get(k) for k in ("protein_g", "carb_g", "fat_g")}
+                if vals.get("note"):
+                    grp["notes"].append(str(vals["note"]))
+                grp["rows"].append(i)
+            except (ValueError, KeyError) as exc:
+                rep.rejected.append({"row": i, "error": str(exc)})
+    out = []
+    for d, grp in sorted(by_date.items()):
+        try:
+            ev = make_event(client_id, "nutrition_targets_set",
+                            datetime.combine(d, time(0), tzinfo=timezone.utc),
+                            {"macros_by_day_type": grp["macros"], "note": "; ".join(grp["notes"])},
+                            Source.import_, recorded_at)
+        except ValidationError as exc:
+            rep.rejected.append({"row": grp["rows"], "error": exc.errors()[0]["msg"]})
+            continue
+        out.append(ev)
+        rep.events += 1
+        rep.first_date = min(rep.first_date or d, d)
+        rep.last_date = max(rep.last_date or d, d)
+    return out
+
+
 def import_csvs(client_id: str, csv_dir: str | Path, mapping: dict[str, Any],
                 recorded_at: datetime | None = None) -> ImportResult:
     csv_dir = Path(csv_dir)
@@ -109,6 +148,9 @@ def import_csvs(client_id: str, csv_dir: str | Path, mapping: dict[str, Any],
         path = csv_dir / spec["file"]
         if not path.exists():
             rep.rejected.append({"row": None, "error": f"file not found: {spec['file']}"})
+            continue
+        if etype == "nutrition_targets_set":
+            events += _import_targets(client_id, path, spec, fmt, rep, recorded_at)
             continue
         model_fields = PAYLOAD_MODELS[etype].model_fields
         sessions: dict[str, dict[str, Any]] = {}

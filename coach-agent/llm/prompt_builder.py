@@ -87,6 +87,15 @@ def user_profile(state: ClientState) -> dict[str, Any]:
         prof["mesocycle"] = {"week": m.week, "weeks_planned": m.weeks_planned,
                              "rir_target": list(m.rir_target) if m.rir_target else "deload",
                              "exercises": m.exercises_per_muscle}
+    if state.limitations:
+        prof["limitations"] = [{"area": lim.area, "restrictions": lim.restrictions,
+                                **({"notes": lim.description} if lim.description else {})}
+                               for lim in state.limitations]
+    if state.target_changes:
+        prof["macro_target_history"] = [
+            {"date": c.date.isoformat(), "day_type": c.day_type,
+             "macros": c.after.model_dump(), **({"note": c.note} if c.note else {})}
+            for c in state.target_changes[-6:]]
     if state.joint_pain:
         prof["joint_pain_last_7d"] = state.joint_pain
     return prof

@@ -13,6 +13,8 @@ Built-in data problems the onboarding report must surface:
   - week of 2026-08-24: intake logged on 3 days
   - the old app never collected soreness ratings
   - one check-in row with hunger 7 (rejected on import)
+It also has a macro-target history (nutrition_targets.csv) and, in onboarding.json,
+a synthetic right-shoulder limitation.
 Built-in training patterns the history review must surface:
   - lat_pulldown stops progressing from the 2026-08-03 meso on (rotation candidate)
   - quads can't match the previous week in the final week of the 2026-08-03 meso
@@ -136,6 +138,15 @@ def generate() -> dict[str, list[list[str]]]:
             hunger_cell = "7" if d == date(2026, 6, 28) else str(hunger)
             files["checkins.csv"].append([d.isoformat(), str(88 + rng.randint(0, 6)), hunger_cell,
                                           str(4 - weeks_cut // 4), "4", ""])
+    # prescribed macro targets (what the coach set), separate from intake (what was eaten)
+    files["nutrition_targets.csv"] = [
+        ["Effective", "Day Type", "Protein", "Carbs", "Fat", "Note"],
+        [HISTORY_START.isoformat(), "moderate", "190", "380", "80", "maintenance"],
+        [HISTORY_START.isoformat(), "non_training", "190", "300", "80", "maintenance"],
+        [CUT_START.isoformat(), "moderate", "190", "300", "65", "cut start"],
+        [CUT_START.isoformat(), "non_training", "190", "180", "70", "cut start"],
+        [date(2026, 9, 7).isoformat(), "moderate", "190", "230", "65", "carbs down after slow week"],
+    ]
     return files
 
 

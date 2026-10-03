@@ -150,8 +150,9 @@ Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client`
 | `proposal_decided` | proposal_id, decision (approved/rejected/modified), coach_note, proposal (snapshot), final_value | Coach action |
 | `consent_recorded` | granted, scope[], note | Before any ingest (§9) |
 | `deload_completed` | start_date, end_date, meso_id? | Coach action / onboarding import |
-| `nutrition_targets_set` | macros_by_day_type {day_type: protein_g, carb_g, fat_g}, proposal_id? | Coach action / onboarding import |
+| `nutrition_targets_set` | macros_by_day_type {day_type: protein_g, carb_g, fat_g}, proposal_id?, note. Day types not listed keep their previous targets; every change is kept as history | Coach action / onboarding / CSV import |
 | `profile_updated` | training_age (beginner/intermediate/advanced) | Coach action / onboarding import |
+| `limitation_recorded` | limitation_id, area, description, restrictions[], active | Coach action / onboarding |
 | `onboarding_completed` | as_of, meso_id, current_meso_week, last_deload_date, phase, current_phase_week, imported_event_counts, data_quality_codes | Onboarding (§13) |
 
 ### 6.2 Derived state (`ClientState`, rebuilt from events)
@@ -326,7 +327,9 @@ A client who arrives mid-phase and mid-mesocycle (e.g. moving from another app o
 - `training_age` (optional)
 - `phase`: phase, target_rate_pct_bw, planned_weeks, **current_phase_week**
 - `meso`: meso_id, weeks_planned (accumulation weeks, deload excluded), **current_week**, **last_deload_date** (date the last deload week ended; `null` if unknown). Optional: exercises_per_muscle and starting_sets_per_muscle
-- `nutrition_targets` (optional): current macros per day type
+- `nutrition_targets` (optional): current macros per day type. Past macro adjustments are imported from CSV (`nutrition_targets_set` stream: one row per date and day type, grouped by date)
+- `limitations` (optional): injuries or conditions that restrict movement: limitation_id, area, description, restrictions[]. They are shown to Mr. J as hard constraints and listed in the history review
+- `meso` is optional. Without it, training rules stay inactive; this suits clients with no logged mesocycle structure
 - `past_mesos` (optional): meso_id, start_date, weeks_planned for completed mesos in the history. These enable cross-meso comparison in §14
 - `past_phases` (optional): phase, start_date, target_rate_pct_bw, planned_weeks
 - `history`: CSV directory + column-mapping JSON (M6 format, see `ingest/csv_import.py`)
@@ -382,6 +385,10 @@ Onboarding exists mainly to compare a client against their own history and find 
 - Weekly averages (weeks with ≥ `tracking.weigh_ins_per_week[0]` weigh-ins), week-to-week rate, and average rate vs. target and vs. the JSON band (`below` / `within` / `above`, weeks in band)
 - Average intake and protein, and estimated maintenance (`avg intake − avg weekly change × kcal_per_lb / 7`), given ≥ `tracking.assess_window_weeks[1]` valid weeks
 - Check-ins: average adherence (vs. `adherence_threshold_pct`), and first → last hunger, energy and sleep
+
+**Macro target changes:** each change to prescribed macros, with the weight trend (lb/week, from 7-day window averages with enough weigh-ins) over up to `tracking.assess_window_weeks[1]` weeks before and after it. Descriptive only: glycogen water shifts after a carb change are part of what it shows.
+
+**Limitations:** active limitations are listed.
 
 **Data habits:** for each stream, whether it was collected, first and last date, weeks with data; data-quality flag counts; streams never collected.
 

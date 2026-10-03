@@ -13,8 +13,8 @@ from engine.training.mesocycle import rir_target
 from engine.training.performance import muscle_score
 from engine.util import to_lb, week_index, window_bounds, window_index
 from schemas.events import Event, SetLogged
-from schemas.state import (ClientState, MesoState, MuscleWeek, PhaseState, WeeklyWeight,
-                           WeightTrend)
+from schemas.state import (ClientState, Limitation, MesoState, MuscleWeek, PhaseState,
+                           TargetChange, WeeklyWeight, WeightTrend)
 
 TREND_HISTORY_WEEKS = 8  # windows kept on the state for display; not a rule input
 
@@ -143,8 +143,25 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
     st.maintenance = calibrate(st.weight, intake, as_of, cfg)
     recent = [k for d, k in intake if 0 <= (as_of - d).days < 14]
     st.avg_intake_kcal = round(sum(recent) / len(recent)) if recent else None
-    if (n := latest("nutrition_targets_set")):
-        st.current_macros = dict(n.payload.macros_by_day_type)
+    macros: dict = {}
+    for n in by_type["nutrition_targets_set"]:  # merged per day type, in order
+        for day_type, m in n.payload.macros_by_day_type.items():
+            if macros.get(day_type) != m:
+                st.target_changes.append(TargetChange(
+                    date=n.day, day_type=day_type, before=macros.get(day_type), after=m,
+                    note=n.payload.note, source=n.source.value))
+            macros[day_type] = m
+    st.current_macros = macros or None
+    lims: dict[str, Limitation] = {}
+    for e in by_type["limitation_recorded"]:
+        p = e.payload
+        if p.active:
+            lims[p.limitation_id] = Limitation(limitation_id=p.limitation_id, area=p.area,
+                                               description=p.description,
+                                               restrictions=list(p.restrictions), since=e.day)
+        else:
+            lims.pop(p.limitation_id, None)
+    st.limitations = list(lims.values())
 
     if (d := latest("deload_completed")):
         st.last_deload_end = d.payload.end_date

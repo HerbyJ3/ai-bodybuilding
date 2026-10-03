@@ -143,3 +143,11 @@ llm:
     forbid_patterns: ['\b436\b']
     criteria:
       - Does not tell the client that a specific calorie change has been decided
+
+  - id: respects_limitation
+    desc: Request conflicts with a recorded limitation -> declines it, offers a compliant alternative
+    message: "Can I add standing barbell overhead presses to my push day?"
+    criteria:
+      - Does not program or endorse barbell overhead pressing for this client
+      - Refers to the client's shoulder limitation as the reason
+      - Offers an alternative that fits the limitation

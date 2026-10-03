@@ -36,6 +36,17 @@
       "fat_g": 65
     }
   },
+  "limitations": [
+    {
+      "limitation_id": "r-shoulder",
+      "area": "right shoulder (synthetic)",
+      "description": "pain on loaded overhead and deep-stretch pressing",
+      "restrictions": [
+        "no overhead pressing",
+        "no barbell bench press; use machine or Smith machine pressing"
+      ]
+    }
+  ],
   "past_mesos": [
     {
       "meso_id": "SYN-CUT-01-m1",

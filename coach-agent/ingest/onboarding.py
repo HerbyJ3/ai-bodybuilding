@@ -78,20 +78,19 @@ def _infer_meso_layout(sets: list[Event], meso_start: date, as_of: date
     return None
 
 
-def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Config,
-                            recorded_at: datetime) -> tuple[list[Event], dict[str, Any], list[str]]:
-    cid, as_of, src = oc.client_id, oc.as_of, Source.import_
-    warnings: list[str] = []
-    m, ph = oc.meso, oc.phase
-
+def _current_meso(oc: OnboardingConfig, imported: list[Event], cfg: Config,
+                  recorded_at: datetime, warnings: list[str]
+                  ) -> tuple[list[Event], dict[str, Any] | None, date | None]:
+    m, cid, as_of, src = oc.meso, oc.client_id, oc.as_of, Source.import_
+    if m is None:
+        warnings.append("no mesocycle given: training rules (set progression, RIR, deload) "
+                        "stay inactive until a meso is started")
+        return [], None, None
     if m.current_week > m.weeks_planned + 1:
         raise OnboardingError(
             f"meso week {m.current_week} is beyond {m.weeks_planned} accumulation weeks + deload")
     warnings += validate_meso_length(m.weeks_planned, cfg)
     meso_start = as_of - timedelta(days=7 * (m.current_week - 1))
-    phase_start = as_of - timedelta(days=7 * (ph.current_phase_week - 1))
-    if ph.current_phase_week > ph.planned_weeks:
-        warnings.append(f"phase week {ph.current_phase_week} > planned {ph.planned_weeks}")
 
     events: list[Event] = []
     deload_info: dict[str, Any] = {"last_deload_date": m.last_deload_date}
@@ -125,13 +124,35 @@ def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Co
         if sets_ is None:
             sets_ = guess[1]
             inferred.append(f"starting_sets_per_muscle from {guess[2]}")
+    events.append(make_event(cid, "meso_started", _at(meso_start),
+                             {"meso_id": m.meso_id, "weeks_planned": m.weeks_planned,
+                              "exercises_per_muscle": ex, "starting_sets_per_muscle": sets_},
+                             src, recorded_at))
+    info = {"meso_id": m.meso_id, "start_date": meso_start, "current_week": m.current_week,
+            "weeks_planned": m.weeks_planned,
+            "rir_target_this_week": rir_target(m.current_week, m.weeks_planned, cfg),
+            "rir_target_next_week": rir_target(m.current_week + 1, m.weeks_planned, cfg),
+            "inferred": inferred, **deload_info}
+    return events, info, meso_start
 
+
+def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Config,
+                            recorded_at: datetime) -> tuple[list[Event], dict[str, Any], list[str]]:
+    cid, as_of, src = oc.client_id, oc.as_of, Source.import_
+    warnings: list[str] = []
+    ph = oc.phase
+    phase_start = as_of - timedelta(days=7 * (ph.current_phase_week - 1))
+    if ph.current_phase_week > ph.planned_weeks:
+        warnings.append(f"phase week {ph.current_phase_week} > planned {ph.planned_weeks}")
+
+    meso_events, meso_info, meso_start = _current_meso(oc, imported, cfg, recorded_at, warnings)
+    events: list[Event] = []
     logged_sets = [e for e in imported if e.type == "set_logged"]
     prev_start: date | None = None
     for pm in sorted(oc.past_mesos, key=lambda x: x.start_date):
-        if pm.start_date >= meso_start:
+        if meso_start is not None and pm.start_date >= meso_start:
             raise OnboardingError(f"past meso {pm.meso_id} starts on/after the current meso")
-        if pm.meso_id == m.meso_id:
+        if oc.meso is not None and pm.meso_id == oc.meso.meso_id:
             raise OnboardingError(f"past meso id {pm.meso_id} duplicates the current meso id")
         if prev_start is not None and pm.start_date == prev_start:
             raise OnboardingError(f"two past mesos start on {pm.start_date}")
@@ -154,23 +175,24 @@ def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Co
     events.append(make_event(cid, "phase_started", _at(phase_start),
                              {"phase": ph.phase, "target_rate_pct_bw": ph.target_rate_pct_bw,
                               "planned_weeks": ph.planned_weeks}, src, recorded_at))
-    events.append(make_event(cid, "meso_started", _at(meso_start),
-                             {"meso_id": m.meso_id, "weeks_planned": m.weeks_planned,
-                              "exercises_per_muscle": ex, "starting_sets_per_muscle": sets_},
-                             src, recorded_at))
+    events += meso_events
     if oc.training_age:
         events.append(make_event(cid, "profile_updated", _at(as_of),
                                  {"training_age": oc.training_age}, src, recorded_at))
     if oc.nutrition_targets:
         events.append(make_event(cid, "nutrition_targets_set", _at(as_of),
-                                 {"macros_by_day_type": oc.nutrition_targets}, src, recorded_at))
-    meso_info = {"meso_id": m.meso_id, "start_date": meso_start, "current_week": m.current_week,
-                 "weeks_planned": m.weeks_planned,
-                 "rir_target_this_week": rir_target(m.current_week, m.weeks_planned, cfg),
-                 "rir_target_next_week": rir_target(m.current_week + 1, m.weeks_planned, cfg),
-                 "inferred": inferred, **deload_info}
+                                 {"macros_by_day_type": oc.nutrition_targets,
+                                  "note": "current targets at onboarding"}, src, recorded_at))
+    ids = [lim.limitation_id for lim in oc.limitations]
+    if len(ids) != len(set(ids)):
+        raise OnboardingError("duplicate limitation_id")
+    for lim in oc.limitations:
+        events.append(make_event(cid, "limitation_recorded", _at(lim.since or as_of), {
+            "limitation_id": lim.limitation_id, "area": lim.area, "description": lim.description,
+            "restrictions": lim.restrictions}, src, recorded_at))
     phase_info = {**ph.model_dump(), "start_date": phase_start}
-    return events, {"meso": meso_info, "phase": phase_info}, warnings
+    return events, {"meso": meso_info, "phase": phase_info,
+                    "limitations": [lim.model_dump() for lim in oc.limitations]}, warnings
 
 
 def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path | None = None,
@@ -200,8 +222,9 @@ def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path
     for e in imported:
         counts[e.type] += 1
     done = make_event(cid, "onboarding_completed", _at(as_of, 23, 59, 59), {
-        "as_of": as_of, "meso_id": oc.meso.meso_id, "current_meso_week": oc.meso.current_week,
-        "last_deload_date": oc.meso.last_deload_date, "phase": oc.phase.phase,
+        "as_of": as_of, "meso_id": oc.meso.meso_id if oc.meso else None,
+        "current_meso_week": oc.meso.current_week if oc.meso else None,
+        "last_deload_date": oc.meso.last_deload_date if oc.meso else None, "phase": oc.phase.phase,
         "current_phase_week": oc.phase.current_phase_week,
         "imported_event_counts": dict(sorted(counts.items())), "data_quality_codes": dq_codes,
     }, Source.import_, recorded_at)
