@@ -102,8 +102,11 @@ def assess(events: list[Event], as_of: date, cfg: Config,
         for e in weigh:
             counts[window_index(as_of, e.day)] += 1
         low = [k for k in range(first_k + 1) if counts[k] < min_weigh_ins]
-        res.flags += _merge_windows("low_weigh_in_frequency", "weigh_in", low, as_of,
-                                    f"fewer than {min_weigh_ins} weigh-ins per week")
+        merged = _merge_windows("low_weigh_in_frequency", "weigh_in", low, as_of,
+                                f"fewer than {min_weigh_ins} weigh-ins per week")
+        # Too few weigh-ins in the current week undermines any nutrition call now (§11).
+        res.flags += [f.model_copy(update={"severity": "critical"}) if f.end == as_of else f
+                      for f in merged]
     else:
         res.flags.append(DataQualityFlag(code="no_weigh_ins", stream="weigh_in", start=as_of,
                                          end=as_of, detail="no weigh-ins logged",

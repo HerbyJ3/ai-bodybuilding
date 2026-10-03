@@ -15,7 +15,7 @@
 Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] `adherence_threshold_pct`: adherence that blocks calorie changes (85)
 - [ ] `data_quality`: BUILD_SPEC §7.5 thresholds (intake 5/7 days, gap > 7 days, ±3 %BW/day, RIR 0–10)
-- [ ] `confidence`: flag-count scoring (lookback 21 days; 1 flag → medium, 2+ or critical → low)
+- [ ] `confidence`: flag-count scoring (lookback 21 days; 1 flag → medium, 2+ or critical → low). Too few weigh-ins in the current week is critical, so the BUILD_SPEC §11 "one weigh-in → low, hold" holds regardless of other data
 - [ ] `training`: cut set-addition cap for non-beginners (1), "multiple muscles" for a deload (2), linear RIR interpolation between week 1 and the final week
 - [ ] `phase_transition`: hunger ≥ 4 or mean performance ≥ 2 counts as "fatigue" past the recommended cut length
 - [ ] `maintenance_confidence`: intake days/weigh-ins per week for high/medium calibration confidence
@@ -37,6 +37,7 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 ## LLM layer (M8)
 - [ ] Retrieval is BM25 keyword search, not embeddings (no Anthropic embeddings endpoint). Revisit if the knowledge corpus grows
 - [ ] Not yet run against the live API from the build environment (no key there). Run `coach checkin` once with a real key and review the tone against the reference example
+- [ ] Run `coach eval --llm` with a real key (6 scenarios ≈ 6–8 coach calls + 6 judge calls). The judge uses the same model as Mr. J; consider a human spot-check of verdicts the first time
 - [ ] Effort `medium` for chat (model default). Raise to `high` if answers feel shallow
 
 ## Not yet extracted

@@ -23,6 +23,12 @@ coach prompt SYN-CUT-01 2026-09-28            # what Mr. J sees (no API call)
 coach checkin SYN-CUT-01 2026-09-28           # Mr. J writes the check-in (needs API key)
 coach chat SYN-CUT-01 2026-09-28              # ask Mr. J questions (needs API key)
 ```
+## Evals
+```bash
+coach eval          # engine scenarios: exact expected outputs (free)
+coach eval --llm    # + Mr. J guardrails (steroids, crash diets, pain, quotes...) graded by Claude; needs API key
+```
+
 Data lives in `data/coach.db` (gitignored). Never commit client data.
 
 ## A real client

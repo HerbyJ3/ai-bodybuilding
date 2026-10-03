@@ -134,7 +134,10 @@ def test_tool_loop_runs_engine_and_returns_final_text(store, cfg):
     ]
     session, fake = _session(store, cfg, script)
     reply = session.ask("What would it take to lose 0.75% a week?")
-    assert reply.tool_calls == [{"name": "calories_for_target_rate", "input": {"target_rate_pct_bw": -0.75}}]
+    [call] = reply.tool_calls
+    assert (call["name"], call["input"], call["is_error"]) == (
+        "calories_for_target_rate", {"target_rate_pct_bw": -0.75}, False)
+    assert '"kcal_per_day_change"' in call["result"]
     second = fake.calls[1]["messages"]
     assert second[-2]["role"] == "assistant"  # full content appended, append-only
     [result] = second[-1]["content"]

@@ -208,5 +208,16 @@ def chat_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-DD,
         typer.echo(f"\nMr. J> {session.ask(text).text}\n")
 
 
+@app.command("eval")
+def eval_cmd(llm: bool = typer.Option(False, "--llm", help="also run Mr. J scenarios (Claude API, costs money)"),
+             only: str = typer.Option(None, help="run one scenario id"),
+             json_out: Path = typer.Option(None, "--json", help="write a JSON report")) -> None:
+    """Run the M9 eval scenarios (evals/scenarios.yaml)."""
+    from evals.run import main
+    args = (["--llm"] if llm else []) + (["--only", only] if only else []) + \
+        (["--json", str(json_out)] if json_out else [])
+    raise typer.Exit(main(args))
+
+
 if __name__ == "__main__":
     app()
