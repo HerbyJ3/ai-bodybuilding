@@ -3,7 +3,7 @@
 ## Decisions needed
 - [ ] LLM provider
 - [ ] Initial maintenance formula (BMR × activity) before history exists. `maintenance.initial_estimate` raises until decided
-- [ ] Persona name / branding
+- [x] Persona name: **Mr. J** (2026-10-03). Branding still open
 - [ ] DB encryption mechanism for production
 - [ ] Auto-approval policy (post-v1)
 - [ ] Tech stack: built with the BUILD_SPEC §4 defaults (Python 3.11, Pydantic v2, SQLite, pytest, Typer). Confirm

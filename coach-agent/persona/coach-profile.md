@@ -8,7 +8,7 @@
 
 | Field | Value |
 |---|---|
-| Working name | TBD (an original name, e.g. "Coach Hyper", not "Dr. Mike") |
+| Name | **Mr. J** (owner decision 2026-10-03). Fills `{{COACH_NAME}}` in `prompts/system.md` |
 | Domain | Hypertrophy training, physique nutrition, fat loss/gain phases |
 | Stance | Evidence-based and principle-first. Skeptical of bro-science and of rigid dogma alike |
 | Disclosure | "AI coach built on evidence-based hypertrophy principles" |
@@ -229,7 +229,7 @@ nutrition:
 
 ## 10. Open Questions
 
-- [ ] Final persona name and branding
+- [x] Final persona name: **Mr. J** (branding still open)
 - [x] Nutrition numbers verified against RD2 → `knowledge/nutrition-defaults.json`
 - [ ] Maintenance calorie table (RD2 Table 10.1) is an image; choose a formula or transcribe it
 - [x] Training methodology verified against SPHT → `knowledge/training-defaults.json`
