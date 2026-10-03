@@ -1,0 +1,121 @@
+{
+  "_meta": {
+    "source": "renaissance-diet-2.0",
+    "units": "grams per lb bodyweight per day unless noted",
+    "verified": "2026-10-03",
+    "notes": "Paraphrased numeric guidance. Maintenance calorie table (Ch10 Table 10.1) not extracted; see maintenance_estimate."
+  },
+  "priority_weights": {
+    "_source": "ch1",
+    "calorie_balance": 0.50,
+    "macronutrients": 0.30,
+    "nutrient_timing": 0.10,
+    "food_composition": 0.05,
+    "supplements_and_hydration": 0.05,
+    "_caveat": "Effective only to the degree the user adheres"
+  },
+  "protein": {
+    "_source": "ch3, ch10",
+    "default": 1.0,
+    "range": [0.5, 1.5],
+    "cut_minimum": 0.8,
+    "cut_typical": 1.0,
+    "cut_upper_for_aggressive_or_satiety": 1.5,
+    "gain_minimum": 0.7,
+    "gain_typical": 1.0,
+    "meals_per_day": [4, 8],
+    "share_per_meal": [0.125, 0.25]
+  },
+  "carbs": {
+    "_source": "ch3, ch10 table 10.2",
+    "absolute_minimum": 0.3,
+    "typical_athletic_range": [1.0, 3.0],
+    "by_day_type": {
+      "non_training": {"minimum": 0.3, "start": 0.5},
+      "light":        {"minimum": 0.5, "start": 1.0},
+      "moderate":     {"minimum": 1.0, "start": 1.5},
+      "hard":         {"minimum": 1.5, "start": 2.0}
+    },
+    "timing": "bias toward pre-, intra-, post-training"
+  },
+  "fat": {
+    "_source": "ch3, ch10",
+    "minimum": 0.3,
+    "allocation": "remainder after protein and carbs",
+    "timing": "bias away from training; toward long gaps and bedtime"
+  },
+  "day_classification": {
+    "_source": "ch10",
+    "non_training": {"working_sets": 0},
+    "light":    {"working_sets_max": 10, "approx_kcal_burn": 300, "duration": "up to ~1h"},
+    "moderate": {"working_sets": [10, 25], "approx_kcal_burn": 500, "duration": "1-2h"},
+    "hard":     {"working_sets_min": 25},
+    "rule": "When unsure: cut -> pick the lighter class; gain -> pick the harder class"
+  },
+  "maintenance_estimate": {
+    "_source": "ch10",
+    "method": "Start from an estimate, then calibrate from 2-3 weeks of bodyweight trend",
+    "_todo": "Book Table 10.1 is an image. Use a standard BMR x activity formula as the starting estimate, or transcribe manually."
+  },
+  "phases": {
+    "_source": "ch9, ch11",
+    "cut": {
+      "rate_pct_bw_per_week": [0.5, 1.0],
+      "duration_weeks": {"min": 3, "recommended": [6, 12], "max": 16},
+      "macro_cut_order": ["fat_to_minimum", "carbs_toward_minimum"],
+      "protect": "protein"
+    },
+    "mini_cut": {
+      "rate": "slightly faster than a standard cut",
+      "purpose": "short cut between gain phases"
+    },
+    "gain": {
+      "rate_pct_bw_per_week": [0.25, 0.5],
+      "duration_weeks": {"recommended": [6, 16], "max_beginner": 24, "max_advanced": 16},
+      "macro_add_order": ["carbs", "fat_when_carb_volume_hurts_adherence"]
+    },
+    "maintenance": {
+      "stable_band_pct_bw": 1.25,
+      "length_after_cut_ratio": [0.67, 1.0],
+      "_note": "May need to lengthen when running repeated cut/maintenance cycles"
+    }
+  },
+  "tracking": {
+    "_source": "ch11",
+    "weigh_ins_per_week": [2, 3],
+    "same_conditions": true,
+    "min_weeks_before_trend": 2,
+    "assess_window_weeks": [2, 3],
+    "never_adjust_on_single_weighin": true,
+    "kcal_per_lb_tissue": 3500
+  },
+  "transitions": {
+    "_source": "ch11",
+    "cut_to_maintenance": [
+      "Jump to midpoint between current intake and estimated maintenance",
+      "Hold 2 weeks; if stable, wait 1 more week then raise ~20%",
+      "Repeat every 3-4 weeks while stable until near estimated maintenance",
+      "Still losing: add back weekly deficit (lb lost x 3500 / 7 per day)",
+      "Gaining: hold until stable 3 weeks, then resume step-ups"
+    ],
+    "gain_to_maintenance": "If still gaining, subtract the surplus implied by the last 2 weeks' average gain",
+    "gain_to_mini_cut": "Treat current intake as maintenance, then apply cut deficit",
+    "mini_cut_to_gain": "Estimate maintenance and add the gain surplus"
+  },
+  "body_fat_healthy_range_pct": {
+    "_source": "ch12",
+    "men": [10, 20],
+    "women": [15, 30]
+  },
+  "supplements_supported": {
+    "_source": "ch6",
+    "list": ["caffeine", "whey protein", "casein protein", "creatine", "carbohydrate formulas", "multivitamin", "omega-3"],
+    "_caveat": "Small effect even for the best-supported ones"
+  },
+  "hydration": {
+    "_source": "ch6",
+    "default": "drink to thirst",
+    "exceptions": "heavy sweat or heat -> deliberate plan with electrolytes",
+    "checks": ["urine color", "pre/post training bodyweight"]
+  }
+}
