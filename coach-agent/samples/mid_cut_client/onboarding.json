@@ -3,7 +3,12 @@
   "as_of": "2026-09-28",
   "consent": {
     "granted": true,
-    "scope": ["training_logs", "nutrition_logs", "bodyweight", "history_import"],
+    "scope": [
+      "training_logs",
+      "nutrition_logs",
+      "bodyweight",
+      "history_import"
+    ],
     "note": "synthetic test client"
   },
   "training_age": "intermediate",
@@ -20,9 +25,42 @@
     "last_deload_date": "2026-09-13"
   },
   "nutrition_targets": {
-    "non_training": {"protein_g": 190, "carb_g": 150, "fat_g": 70},
-    "moderate": {"protein_g": 190, "carb_g": 230, "fat_g": 65}
+    "non_training": {
+      "protein_g": 190,
+      "carb_g": 150,
+      "fat_g": 70
+    },
+    "moderate": {
+      "protein_g": 190,
+      "carb_g": 230,
+      "fat_g": 65
+    }
   },
+  "past_mesos": [
+    {
+      "meso_id": "SYN-CUT-01-m1",
+      "start_date": "2026-05-18",
+      "weeks_planned": 5
+    },
+    {
+      "meso_id": "SYN-CUT-01-m2",
+      "start_date": "2026-06-29",
+      "weeks_planned": 4
+    },
+    {
+      "meso_id": "SYN-CUT-01-m3",
+      "start_date": "2026-08-03",
+      "weeks_planned": 5
+    }
+  ],
+  "past_phases": [
+    {
+      "phase": "maintenance",
+      "start_date": "2026-06-08",
+      "target_rate_pct_bw": 0,
+      "planned_weeks": 10
+    }
+  ],
   "history": {
     "csv_dir": ".",
     "mapping": "mapping.json"

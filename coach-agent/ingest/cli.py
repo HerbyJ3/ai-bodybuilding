@@ -8,6 +8,7 @@ from pathlib import Path
 import typer
 
 from config.loader import load_config
+from engine import history_review
 from engine import proposals as proposal_engine
 from engine.state_builder import build_state
 from ingest.csv_import import import_csvs, load_mapping
@@ -58,6 +59,20 @@ def proposals_cmd(client_id: str, as_of: str, db: Path = DEFAULT_DB) -> None:
     st = build_state(EventStore(db).read(client_id), date.fromisoformat(as_of), cfg)
     for p in proposal_engine.generate(st, cfg):
         typer.echo(p.model_dump_json())
+
+
+@app.command("review")
+def review_cmd(client_id: str, as_of: str, db: Path = DEFAULT_DB, full: bool = False) -> None:
+    """History review: what progressed, what stalled, what to improve (read-only)."""
+    cfg = load_config()
+    events = EventStore(db).read(client_id)
+    st = build_state(events, date.fromisoformat(as_of), cfg)
+    rev = history_review.review(events, st, cfg)
+    if full:
+        typer.echo(json.dumps(rev, indent=2, default=str))
+    else:
+        for f in rev["findings"]:
+            typer.echo(f"[{f['area']}] {f['finding']}")
 
 
 if __name__ == "__main__":

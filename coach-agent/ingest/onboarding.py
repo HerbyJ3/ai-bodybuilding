@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from config.loader import Config
-from engine import cold_start, proposals
+from engine import cold_start, history_review, proposals
 from engine.state_builder import build_state
 from engine.training.mesocycle import rir_target, validate_meso_length
 from engine.util import week_index
@@ -126,6 +126,31 @@ def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Co
             sets_ = guess[1]
             inferred.append(f"starting_sets_per_muscle from {guess[2]}")
 
+    logged_sets = [e for e in imported if e.type == "set_logged"]
+    prev_start: date | None = None
+    for pm in sorted(oc.past_mesos, key=lambda x: x.start_date):
+        if pm.start_date >= meso_start:
+            raise OnboardingError(f"past meso {pm.meso_id} starts on/after the current meso")
+        if pm.meso_id == m.meso_id:
+            raise OnboardingError(f"past meso id {pm.meso_id} duplicates the current meso id")
+        if prev_start is not None and pm.start_date == prev_start:
+            raise OnboardingError(f"two past mesos start on {pm.start_date}")
+        prev_start = pm.start_date
+        accum_end = pm.start_date + timedelta(days=7 * pm.weeks_planned - 1)
+        layout = _infer_meso_layout(logged_sets, pm.start_date, accum_end)
+        events.append(make_event(cid, "meso_started", _at(pm.start_date), {
+            "meso_id": pm.meso_id, "weeks_planned": pm.weeks_planned,
+            "exercises_per_muscle": layout[0] if layout else {},
+            "starting_sets_per_muscle": layout[1] if layout else {}}, src, recorded_at))
+        if layout is None:
+            warnings.append(f"past meso {pm.meso_id}: no set logs in its first week")
+    for pp in sorted(oc.past_phases, key=lambda x: x.start_date):
+        if pp.start_date >= phase_start:
+            raise OnboardingError(f"past {pp.phase} phase starts on/after the current phase")
+        events.append(make_event(cid, "phase_started", _at(pp.start_date), {
+            "phase": pp.phase, "target_rate_pct_bw": pp.target_rate_pct_bw,
+            "planned_weeks": pp.planned_weeks}, src, recorded_at))
+
     events.append(make_event(cid, "phase_started", _at(phase_start),
                              {"phase": ph.phase, "target_rate_pct_bw": ph.target_rate_pct_bw,
                               "planned_weeks": ph.planned_weeks}, src, recorded_at))
@@ -182,8 +207,10 @@ def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path
     }, Source.import_, recorded_at)
 
     inserted, dupes = store.append([consent, *imported, *ob_events, done])
-    state = build_state(store.read(cid), as_of, cfg)
+    all_events = store.read(cid)
+    state = build_state(all_events, as_of, cfg)
     props = proposals.generate(state, cfg)
+    review = history_review.review(all_events, state, cfg)
 
     flags = [f.model_dump() for f in state.data_quality]
     by_code: dict[str, int] = defaultdict(int)
@@ -213,6 +240,7 @@ def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path
                          for mu, g in train.items()},
             "training_gate_applies": cold_start.training_applies(state, cfg),
         },
+        "history_review": review,
         "proposals": [{"rule_id": p.rule_id, "target": p.target, "action": p.action,
                        "confidence": p.confidence, "rationale": p.rationale_short,
                        "flags": p.data_quality_flags} for p in props],

@@ -13,6 +13,9 @@ Built-in data problems the onboarding report must surface:
   - week of 2026-08-24: intake logged on 3 days
   - the old app never collected soreness ratings
   - one check-in row with hunger 7 (rejected on import)
+Built-in training patterns the history review must surface:
+  - lat_pulldown stops progressing from the 2026-08-03 meso on (rotation candidate)
+  - quads can't match the previous week in the final week of the 2026-08-03 meso
 """
 from __future__ import annotations
 
@@ -113,6 +116,10 @@ def generate() -> dict[str, list[list[str]]]:
                 n_sets = 2 if deload else 3 + (wk - 1) // 2
                 for s in range(n_sets):
                     r = reps + (wk - 1) + (1 if rng.random() < 0.3 else 0) - s // 2
+                    if ex == "lat_pulldown" and mi >= 2:
+                        r = reps - s // 2  # stalled
+                    if muscle == "quads" and mi == 2 and wk == 5:
+                        r = reps + 1 - s // 2  # fewer reps than week 4
                     ld = load * (0.5 if deload and wd in (3, 4) else 1.0)
                     files["sets.csv"].append([d.isoformat(), sid, ex, muscle, f"{ld:g}",
                                               str(max(r, 1)), str(5 if deload else rir), str(s)])

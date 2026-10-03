@@ -110,6 +110,7 @@ coach-agent/
 │   ├── cardio.py              ← PROVISIONAL rules (see §7.4)
 │   ├── data_quality.py
 │   ├── cold_start.py          ← onboarding gates (§13.5)
+│   ├── history_review.py      ← read-only history comparison (§14)
 │   └── proposals.py
 ├── llm/
 │   ├── client.py
@@ -317,6 +318,8 @@ A client who arrives mid-phase and mid-mesocycle (e.g. moving from another app o
 - `phase`: phase, target_rate_pct_bw, planned_weeks, **current_phase_week**
 - `meso`: meso_id, weeks_planned (accumulation weeks, deload excluded), **current_week**, **last_deload_date** (date the last deload week ended; `null` if unknown). Optional: exercises_per_muscle and starting_sets_per_muscle
 - `nutrition_targets` (optional): current macros per day type
+- `past_mesos` (optional): meso_id, start_date, weeks_planned for completed mesos in the history. These enable cross-meso comparison in §14
+- `past_phases` (optional): phase, start_date, target_rate_pct_bw, planned_weeks
 - `history`: CSV directory + column-mapping JSON (M6 format, see `ingest/csv_import.py`)
 
 ### 13.2 Flow (`ingest/onboarding.py`)
@@ -326,10 +329,12 @@ A client who arrives mid-phase and mid-mesocycle (e.g. moving from another app o
    - `phase_started` at `as_of − 7 × (current_phase_week − 1)` days
    - `meso_started` at `as_of − 7 × (current_week − 1)` days. If exercises or sets are not supplied, they are inferred from meso week 1 set logs (fallback: the latest full week). The report lists what was inferred
    - `deload_completed` ending on `last_deload_date`, with its length taken from `fatigue_management.deload.length`
+   - `meso_started` / `phase_started` for each past meso and phase. Past meso layouts are inferred from their week-1 logs
    - `profile_updated` / `nutrition_targets_set` when supplied
    - `onboarding_completed` (at the end of `as_of`)
 4. Run `data_quality` over the whole imported history and report it (§13.4).
 5. Build state and run the rules engine with the cold-start gates (§13.5). The first proposals go into the report.
+6. Run the history review (§14) and add it to the report.
 
 Validation: a `current_week` greater than `weeks_planned + 1` (past the deload week) is an error. A last deload on or after the derived meso start is an error. A gap between deload end and meso start larger than `data_quality.max_gap_days` is a warning, as is a missing deload date. Onboarding is idempotent: re-running it writes nothing new.
 
@@ -350,4 +355,28 @@ The owner has deferred the cold-start design. The rules below are implemented as
 `samples/generate_mid_cut_client.py` deterministically generates `samples/mid_cut_client/*.csv`. A test checks that the committed files match the generator. The client is in week 7 of a 12-week cut (target 0.75 %BW/wk, actually ~0.3 %/wk) and week 3 of a 5-week meso, with the last deload ending 2026-09-13. The data contains a vacation gap in every stream, a weigh-in typo, a sparse weigh-in week, a sparse intake week, no soreness ratings, and one invalid check-in row.
 
 CLI: `coach onboard samples/mid_cut_client/onboarding.json --db data/coach.db --report data/report.json`
+
+---
+
+## 14. History review (`engine/history_review.py`)
+
+Onboarding exists mainly to compare a client against their own history and find what to improve. The review is **read-only**: it produces findings, never proposals, and writes no events. It compares the client only with themselves. Every number is computed from their data or read from `knowledge/*.json` / `engine-settings.json`. There are no external benchmarks and no estimated 1RMs.
+
+**Training** (segmented by `meso_started`, including the past mesos from §13.1)
+- *Within each meso:* each exercise's best set (heaviest, then most reps) in its first logged accumulation week vs. its last. Status is `progressed` / `flat` / `regressed` / `mixed`, from direct load and rep comparison.
+- *Across mesos:* the same exercise in consecutive mesos, compared at the latest meso week **both** have data for (like-for-like, so an in-progress meso is never compared with a finished meso's peak). Caveat: the same week number can carry a different RIR target when meso lengths differ.
+- *Rotation candidates* (`exercise_selection.rotate`: staleness + performance): an exercise kept across ≥ 2 consecutive **complete** mesos that was flat or regressed in the latest complete one.
+- *Volume per muscle:* sets and derived performance for each meso week, plus the first week performance hit 3 and the sets that week (a hint at observed MRV, §6.2).
+- *Joint pain:* reports per joint, max severity, exercises involved.
+
+**Bodyweight & nutrition** (segmented by `phase_started`, complete phase weeks only)
+- Weekly averages (weeks with ≥ `tracking.weigh_ins_per_week[0]` weigh-ins), week-to-week rate, and average rate vs. target and vs. the JSON band (`below` / `within` / `above`, weeks in band)
+- Average intake and protein, and estimated maintenance (`avg intake − avg weekly change × kcal_per_lb / 7`), given ≥ `tracking.assess_window_weeks[1]` valid weeks
+- Check-ins: average adherence (vs. `adherence_threshold_pct`), and first → last hunger, energy and sleep
+
+**Data habits:** for each stream, whether it was collected, first and last date, weeks with data; data-quality flag counts; streams never collected.
+
+**Findings:** plain-language lines derived deterministically from the above, which the LLM layer can explain later.
+
+CLI: `coach review <client_id> <as_of> [--full]`
 

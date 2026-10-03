@@ -31,6 +31,7 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] Gain-phase *decreases* and cut-phase *increases* use fat→carbs (decrease) and carbs-first (increase). The books only state the cut-decrease and gain-increase orders
 - [ ] Maintenance `stable_band_pct_bw` (1.25) is read as max drift over the assess window
 - [ ] Cut→maintenance: only the first step (midpoint jump) is automated. The ~20 % step-ups every 3–4 weeks are left to the coach (base of "20 %" is ambiguous)
+- [ ] History review (§14): rotation candidate = kept ≥ 2 consecutive complete mesos and flat/regressed in the latest; "best set" = heaviest then most reps (no e1RM); across-meso comparison at the latest common meso week (RIR may differ when meso lengths differ)
 - [ ] Weeks are trailing 7-day windows ending at `as_of` (data quality, trend); meso/phase weeks count from their start event
 
 ## Not yet extracted

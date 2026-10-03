@@ -34,6 +34,20 @@ class MesoInput(_In):
     starting_sets_per_muscle: dict[str, int] | None = None
 
 
+class PastMesoInput(_In):
+    """A completed mesocycle in the imported history (enables cross-meso comparison)."""
+    meso_id: str
+    start_date: date
+    weeks_planned: int = Field(gt=0)
+
+
+class PastPhaseInput(_In):
+    phase: PhaseName
+    start_date: date
+    target_rate_pct_bw: float = Field(ge=0)
+    planned_weeks: int = Field(gt=0)
+
+
 class ImportInput(_In):
     csv_dir: str
     mapping: str
@@ -47,4 +61,6 @@ class OnboardingConfig(_In):
     phase: PhaseInput
     meso: MesoInput
     nutrition_targets: dict[DayType, MacroTargets] | None = None
+    past_mesos: list[PastMesoInput] = Field(default_factory=list)
+    past_phases: list[PastPhaseInput] = Field(default_factory=list)
     history: ImportInput
