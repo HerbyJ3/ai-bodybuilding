@@ -244,6 +244,12 @@ Flag rather than fail. Flags lower proposal confidence:
 - **The LLM never computes numbers.** It receives numbers from the engine and explains them. If the user asks a "what if" question that needs math, call the engine.
 - The LLM may only present **approved** proposals to clients. Pending proposals go to the coach view.
 - Persona guardrails from `prompts/system.md` are mandatory (no PED dosing, no medical diagnosis, crash-diet refusal, disordered-eating handling).
+- **Implementation (M8):**
+  - `llm/client.py`: `ClaudeClient`, the only provider code. It uses `claude-opus-5-5` with effort `medium`; thinking stays on, since it can't be disabled on this model. It sends `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) and runs a manual tool loop with append-only history. A `refusal` stop is replaced with a safe message, never shown as an answer. Settings live in `config/llm-settings.json`, with coach name **Mr. J**.
+  - `llm/retrieval.py`: BM25 keyword ranking over `## [chX]` chunks. The Anthropic API has no embeddings endpoint, and the corpus is small.
+  - `llm/tools.py`: strict tools that call the engine: `search_knowledge`, `calories_for_target_rate`, `macros_for_calories`. Results are labeled hypothetical; changing the plan still needs coach approval.
+  - `llm/coach.py`: assembles the session from the state, approved decisions dated ≤ `as_of`, history-review findings, and knowledge retrieved for those findings.
+  - CLI: `coach prompt` (prints the system prompt, no API call), `coach checkin`, `coach chat`. Requires an `ANTHROPIC_API_KEY` or an `ant auth login` profile.
 
 ---
 

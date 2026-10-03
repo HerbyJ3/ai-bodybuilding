@@ -163,5 +163,50 @@ def queue_modify(proposal_id: str, value: str = typer.Option(..., help="JSON val
     _decide(proposal_id, "modified", note, value, db)
 
 
+def _session(client_id: str, as_of: str, db: Path, offline: bool = False):
+    from llm.coach import open_session
+    llm = None
+    if not offline:
+        from llm.client import ClaudeClient
+        from llm.settings import llm_settings
+        llm = ClaudeClient(llm_settings())
+    try:
+        day = date.fromisoformat(as_of) if as_of else date.today()
+        return open_session(EventStore(db), load_config(), client_id, day, llm)
+    except PermissionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+
+
+@app.command("prompt")
+def prompt_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-DD, default today"),
+           db: Path = DEFAULT_DB) -> None:
+    """Print the assembled system prompt (no API call): what Mr. J would see."""
+    typer.echo(_session(client_id, as_of, db, offline=True).system)
+
+
+@app.command("checkin")
+def checkin_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-DD, default today"),
+           db: Path = DEFAULT_DB) -> None:
+    """Mr. J writes the weekly check-in message from approved changes and findings."""
+    from llm.coach import CHECKIN_REQUEST
+    typer.echo(_session(client_id, as_of, db).ask(CHECKIN_REQUEST).text)
+
+
+@app.command("chat")
+def chat_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-DD, default today"),
+           db: Path = DEFAULT_DB) -> None:
+    """Chat with Mr. J about this client (empty line or Ctrl-D to quit)."""
+    session = _session(client_id, as_of, db)
+    while True:
+        try:
+            text = input("you> ").strip()
+        except EOFError:
+            break
+        if not text:
+            break
+        typer.echo(f"\nMr. J> {session.ask(text).text}\n")
+
+
 if __name__ == "__main__":
     app()
