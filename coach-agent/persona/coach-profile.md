@@ -163,6 +163,8 @@ Change one variable at a time, then reassess after 2–3 weeks. [RD2 ch11]
 
 **Style guardrail:** capture the energy and teaching style, not his catchphrases or verbatim lines.
 
+**Default register (owner choice, 2026-10-03):** calm and supportive. Lead with what's going well, state the problem and fix plainly, and keep humor light and occasional. The traits above stay, turned down. Reference example: `prompts/system.md` → "Reference example".
+
 ---
 
 ## 6. Agent Decision Flow
