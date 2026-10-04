@@ -43,14 +43,22 @@
       {% else %}<p class="banner warn">No macro targets on record. They're required for calorie adjustments.</p>{% endif %}
 
       <div id="macros" class="subsection">
-        <h3>Macros hit?</h3>
+        <h3>Daily Target</h3>
+        {% set tt = training_type %}
+        {% set tm = st.current_macros[tt] if (st.current_macros and tt) else none %}
+        {% set rm = st.current_macros["non_training"] if (st.current_macros and "non_training" in st.current_macros) else none %}
         <form method="post" action="/client/{{ cid }}/macros-hit" class="macro-form">
           <input type="hidden" name="as_of" value="{{ as_of }}">
           <div class="row">
             <label class="small inline">Date <input type="date" name="when" value="{{ as_of }}" max="{{ as_of }}"></label>
+            <label class="small inline check"><input type="checkbox" name="non_training" value="1" class="rest-day"{% if not rm %} disabled{% endif %}> Non-training day</label>
             <label class="small inline">Hit?
               <select name="hit" class="hit-select"><option value="yes">Yes</option><option value="no">No</option></select></label>
           </div>
+          <p class="small muted target-line"
+             data-training="{% if tm %}{{ tt|replace('_', ' ')|capitalize }} target: {{ tm.protein_g|round|int }} P / {{ tm.carb_g|round|int }} C / {{ tm.fat_g|round|int }} F{% else %}No training-day targets{% endif %}"
+             data-rest="{% if rm %}Low-carb (non-training) target: {{ rm.protein_g|round|int }} P / {{ rm.carb_g|round|int }} C / {{ rm.fat_g|round|int }} F{% endif %}">
+             {% if tm %}{{ tt|replace('_', ' ')|capitalize }} target: {{ tm.protein_g|round|int }} P / {{ tm.carb_g|round|int }} C / {{ tm.fat_g|round|int }} F{% else %}No training-day targets{% endif %}</p>
           <div class="row off-by" hidden>
             {% for m in ["protein", "carbs", "fat"] %}
             <label class="small inline">{{ m|capitalize }}
@@ -63,8 +71,8 @@
         </form>
         {% set ma = st.macro_adherence %}
         {% if ma %}
-        <p class="small"><strong>{{ ma.days_hit }}/{{ ma.days_logged }}</strong> days hit in the last {{ ma.window_days }} days ({{ ma.pct }}%).</p>
-        <ul class="small daylog">{% for r in ma.recent %}<li>{{ r.date }}: {% if r.hit %}hit{% else %}missed: {% for k, v in r.off_by.items() %}{{ k|replace("_g", "")|replace("carb", "carbs") }} {{ "%+d"|format(v) }} g{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</li>{% endfor %}</ul>
+        <p class="small"><strong>{{ ma.days_hit }}/{{ ma.days_logged }}</strong> days on target in the last {{ ma.window_days }} days ({{ ma.pct }}%).</p>
+        <ul class="small daylog">{% for r in ma.recent %}<li>{{ r.date }}{% if r.day_type == "non_training" %} (non-training){% endif %}: {% if r.hit %}hit{% else %}missed: {% for k, v in r.off_by.items() %}{{ k|replace("_g", "")|replace("carb", "carbs") }} {{ "%+d"|format(v) }} g{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</li>{% endfor %}</ul>
         {% endif %}
       </div>
     </section>
@@ -140,18 +148,29 @@
     </section>
 
     <section class="card" id="checkins">
-      <h2>Check-in</h2>
+      {% set ci = checkin_today or {} %}
+      {% set lv = {1: "low", 3: "mid", 5: "high"} %}
+      <h2>Check-in <span class="muted small">for {{ as_of }}</span></h2>
+      {% if checkin_today %}<p class="small muted">Saved for this date. Change anything and save again to update it.</p>{% endif %}
       <form method="post" action="/client/{{ cid }}/checkin-log" class="checkin-form">
         <input type="hidden" name="as_of" value="{{ as_of }}">
+        <label class="small">Notes
+          <span class="field"><input name="notes" value="{{ ci.notes or '' }}" placeholder="optional"><button type="button" class="clear" aria-label="Clear notes" title="Clear">×</button></span></label>
         <div class="grid-2">
-          <label class="small">Date <input type="date" name="when" value="{{ as_of }}" max="{{ as_of }}"></label>
-          <label class="small">Hunger <select name="hunger" required><option value="">–</option><option value="low">Low</option><option value="mid">Mid</option><option value="high">High</option></select></label>
-          <label class="small">Energy <select name="energy" required><option value="">–</option><option value="low">Low</option><option value="mid">Mid</option><option value="high">High</option></select></label>
-          <label class="small">Training feels <select name="training_feel"><option value="">–</option><option value="crap">Crap</option><option value="good">Good</option><option value="fantastic">Fantastic</option></select></label>
-          <label class="small">Sleep <select name="sleep_hours"><option value="">–</option>{% for h in range(8, 0, -1) %}<option value="{{ h }}">{{ h }} hour{{ "s" if h > 1 else "" }}</option>{% endfor %}</select></label>
-          <label class="small">Notes <input name="notes" placeholder="optional"></label>
+          {% macro dropdown(label, name, options, current, required=false) %}
+          <label class="small">{{ label }}
+            <span class="field"><select name="{{ name }}"{% if required %} required{% endif %}>
+              <option value="">–</option>
+              {% for value, text in options %}<option value="{{ value }}"{% if current is not none and current|string == value|string %} selected{% endif %}>{{ text }}</option>{% endfor %}
+            </select><button type="button" class="clear" aria-label="Clear {{ label|lower }}" title="Clear">×</button></span></label>
+          {% endmacro %}
+          {{ dropdown("Hunger", "hunger", [("low", "Low"), ("mid", "Mid"), ("high", "High")], lv.get(ci.hunger), true) }}
+          {{ dropdown("Energy", "energy", [("low", "Low"), ("mid", "Mid"), ("high", "High")], lv.get(ci.energy), true) }}
+          {{ dropdown("Training feels", "training_feel", [("crap", "Crap"), ("good", "Good"), ("fantastic", "Fantastic")], ci.training_feel) }}
+          {% set hours = [] %}{% for h in range(8, 0, -1) %}{% set _ = hours.append((h, h ~ " hour" ~ ("s" if h > 1 else ""))) %}{% endfor %}
+          {{ dropdown("Sleep", "sleep_hours", hours, ci.sleep_hours|int if ci.sleep_hours else none) }}
         </div>
-        <button class="ghost">Save check-in</button>
+        <button>Save check-in</button>
       </form>
       {% if st.checkins_recent %}
       <table class="small"><thead><tr><th>Date</th><th>Hunger</th><th>Energy</th><th>Training</th><th>Sleep</th></tr></thead><tbody>

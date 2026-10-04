@@ -136,13 +136,13 @@ def env(tmp_path, cfg):
 
 def test_checkin_form_saves_mapped_values(env, cfg):
     client, llm, db = env
-    r = client.post(f"/client/{CID}/checkin-log", data={"as_of": AS_OF, "when": "2026-09-27", "hunger": "high",
+    r = client.post(f"/client/{CID}/checkin-log", data={"as_of": AS_OF, "hunger": "high",
                                                         "energy": "low", "training_feel": "fantastic",
                                                         "sleep_hours": "6"}, follow_redirects=True)
     assert "Check-in saved" in r.text and "fantastic" in r.text and "6 h" in r.text
     c = [e for e in EventStore(db).read(CID) if e.type == "weekly_checkin"][-1]
     assert (c.day, c.payload.hunger, c.payload.energy, c.payload.sleep_hours, c.payload.training_feel,
-            c.source.value) == (date(2026, 9, 27), 5, 1, 6.0, "fantastic", "coach")
+            c.source.value) == (date(2026, 9, 28), 5, 1, 6.0, "fantastic", "coach")  # the page's As-of date
     r = client.post(f"/client/{CID}/checkin-log", data={"as_of": AS_OF, "hunger": "starving", "energy": "mid"},
                     follow_redirects=True)
     assert "must be low, mid or high" in r.text
@@ -152,7 +152,7 @@ def test_macros_hit_form(env):
     client, _, db = env
     r = client.post(f"/client/{CID}/macros-hit", data={"as_of": AS_OF, "when": "2026-09-27", "hit": "yes"},
                     follow_redirects=True)
-    assert "Macros logged" in r.text
+    assert "Daily target logged" in r.text
     r = client.post(f"/client/{CID}/macros-hit", data={"as_of": AS_OF, "when": "2026-09-26", "hit": "no",
                                                        "off_carbs": "40", "off_fat": "-10", "off_protein": ""},
                     follow_redirects=True)
@@ -199,3 +199,35 @@ def test_chat_attachment_only_and_errors(env):
                     files=[("files", ("plan.doc", b"x"))], follow_redirects=True)
     assert "save it as .docx" in r.text and len(llm.calls) == n
     assert ChatStore(EventStore(db)).history(CID)[-1]["content"] != "old file"
+
+
+def test_checkin_resave_replaces_and_prefills(env, cfg):
+    client, _, db = env
+    client.post(f"/client/{CID}/checkin-log", data={"as_of": AS_OF, "hunger": "low", "energy": "low",
+                                                    "notes": "rough week"})
+    r = client.get(f"/client/{CID}?as_of={AS_OF}")
+    form = r.text.split('id="checkins"')[1].split("</form>")[0]
+    assert 'value="rough week"' in form and '<option value="low" selected>' in form
+    assert 'name="when"' not in form  # date comes from the page header
+    assert form.index('name="notes"') < form.index('name="hunger"') < form.index("Save check-in")
+    assert form.count('class="clear"') == 5  # notes + 4 dropdowns
+    client.post(f"/client/{CID}/checkin-log", data={"as_of": AS_OF, "hunger": "mid", "energy": "high"})
+    st = build_state(EventStore(db).read(CID), date(2026, 9, 28), cfg)
+    todays = [c for c in st.checkins_recent if c["date"] == date(2026, 9, 28)]
+    assert len(todays) == 1 and (todays[0]["hunger"], todays[0]["notes"]) == (3, "")
+
+
+def test_daily_target_non_training_checkbox(env, cfg):
+    client, _, db = env
+    r = client.get(f"/client/{CID}?as_of={AS_OF}")
+    assert "Daily Target" in r.text and "Macros hit?" not in r.text
+    assert "Low-carb (non-training) target: 190 P / 150 C / 70 F" in r.text
+    assert "Moderate target: 190 P / 230 C / 65 F" in r.text
+    client.post(f"/client/{CID}/macros-hit", data={"as_of": AS_OF, "when": "2026-09-27", "hit": "yes",
+                                                   "non_training": "1"})
+    client.post(f"/client/{CID}/macros-hit", data={"as_of": AS_OF, "when": "2026-09-26", "hit": "yes"})
+    logs = {e.payload.date: e.payload.day_type for e in EventStore(db).read(CID)
+            if e.type == "macro_adherence_logged"}
+    assert logs == {date(2026, 9, 27): "non_training", date(2026, 9, 26): "moderate"}
+    r = client.get(f"/client/{CID}?as_of={AS_OF}")
+    assert "2026-09-27 (non-training): hit" in r.text

@@ -32,6 +32,11 @@ UPLOAD_NAME = re.compile(r"^[A-Za-z0-9._-]+\.(csv|json)$")
 SAFE_DIR = re.compile(r"[^a-z0-9_-]+")
 
 
+def training_day_type(macros: dict | None) -> str | None:
+    """The client's training-day targets: the first day type that isn't the rest (non_training) day."""
+    return next((k for k in (macros or {}) if k != "non_training"), None)
+
+
 def level_name(v: Any) -> str:
     """1/3/5 come from the dashboard (low/mid/high); 2/4 from 1-5 imports are shown with the number."""
     if v in LEVEL_NAMES:
@@ -150,6 +155,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             "chart": weight_svg(series, markers), "series": series,
             "chat": ChatStore(store).history(cid), "error": error, "notice": notice,
             "intake": recent_intake(events, d, st),
+            "checkin_today": next((c for c in st.checkins_recent if c["date"] == d), None),
+            "training_type": training_day_type(st.current_macros),
         }
         return tpl.TemplateResponse(request, "client.html", ctx)
 
@@ -180,7 +187,7 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         return day(value or as_of)
 
     @app.post("/client/{cid}/checkin-log")
-    def checkin_log(cid: str, as_of: str = Form(""), when: str = Form(""), hunger: str = Form(...),
+    def checkin_log(cid: str, as_of: str = Form(""), hunger: str = Form(...),
                     energy: str = Form(...), training_feel: str = Form(""), sleep_hours: str = Form(""),
                     notes: str = Form("")):
         from schemas.events import Source, make_event
@@ -193,7 +200,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         if sleep_hours:
             payload["sleep_hours"] = float(sleep_hours)
         try:
-            store.append([make_event(cid, "weekly_checkin", _when(when, as_of), payload, Source.coach)])
+            # dated by the page's "As of" date; saving again for that date replaces the entry
+            store.append([make_event(cid, "weekly_checkin", day(as_of), payload, Source.coach)])
         except ValueError as exc:
             return back(cid, as_of, "checkins", error=f"check-in not saved: {exc}")
         return back(cid, as_of, "checkins", notice="Check-in saved")
@@ -211,15 +219,18 @@ def create_app(data_dir: Path, cfg: Config | None = None,
                 v = str(form.get(f"off_{name}", "") or "")
                 if v:
                     off_by[key] = float(v)
+        when = _when(str(form.get("when", "")), as_of)
+        day_type = "non_training" if form.get("non_training") else training_day_type(
+            build_state(store.read(cid), when, cfg).current_macros)
         try:
-            ev = make_event(cid, "macro_adherence_logged", _when(str(form.get("when", "")), as_of),
-                            {"date": _when(str(form.get("when", "")), as_of), "hit": hit, "off_by": off_by},
+            ev = make_event(cid, "macro_adherence_logged", when,
+                            {"date": when, "hit": hit, "off_by": off_by, "day_type": day_type},
                             Source.coach)
             store.append([ev])
         except ValueError as exc:
             msg = str(exc).split("\n")[-1] if "validation" in str(exc).lower() else str(exc)
             return back(cid, as_of, "macros", error=f"not saved: {msg.strip()}")
-        return back(cid, as_of, "macros", notice="Macros logged")
+        return back(cid, as_of, "macros", notice="Daily target logged")
 
     @app.post("/client/{cid}/import-mfp")
     async def import_mfp(cid: str, as_of: str = Form(""), unit: str = Form("lb"),

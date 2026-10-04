@@ -17,3 +17,16 @@ document.querySelectorAll(".macro-form").forEach(f => {
   const sync = () => { off.hidden = sel.value !== "no"; };
   sel.addEventListener("change", sync); sync();
 });
+
+// Red x: clear the field next to it (dropdown back to "–", text emptied).
+document.querySelectorAll(".field .clear").forEach(btn => btn.addEventListener("click", () => {
+  const input = btn.parentElement.querySelector("select, input");
+  input.value = ""; input.focus();
+}));
+// Daily Target: show the low-carb targets when "Non-training day" is ticked.
+document.querySelectorAll(".macro-form").forEach(f => {
+  const box = f.querySelector(".rest-day"), line = f.querySelector(".target-line");
+  if (!box || !line) return;
+  const sync = () => { line.textContent = box.checked ? line.dataset.rest : line.dataset.training; };
+  box.addEventListener("change", sync);
+});

@@ -96,6 +96,7 @@ class MacroAdherenceLogged(_Payload):
     date: date
     hit: bool
     off_by: dict[MacroKey, float] = Field(default_factory=dict)
+    day_type: DayType | None = None  # which day's targets applied (e.g. non_training = low-carb day)
 
     @model_validator(mode="after")
     def _consistent(self) -> "MacroAdherenceLogged":
