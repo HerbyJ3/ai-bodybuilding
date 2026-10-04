@@ -372,9 +372,10 @@ def findings(training: dict, phases: list[dict], habits: dict, cfg: Config,
         add("training", f"{joint}: {p['reports']} pain report(s), max severity {p['max_severity']}"
                         + (f" ({', '.join(p['exercises'])})" if p["exercises"] else ""))
 
-    missing = [s["label"] for s in habits.get("streams", {}).values() if not s["collected"]]
+    missing = [s["label"] for s in habits.get("streams", {}).values()
+               if not s["collected"] and s["label"] != "weigh-ins"]
     if missing:
-        add("data", "never collected: " + ", ".join(missing))
+        add("data", "optional, not collected (would sharpen coaching): " + ", ".join(missing))
     return out
 
 

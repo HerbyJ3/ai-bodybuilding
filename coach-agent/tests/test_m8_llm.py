@@ -90,7 +90,7 @@ def test_system_prompt_has_name_profile_findings_and_no_pending(store, cfg):
     s = session.system
     assert "You are Mr. J" in s and "{{" not in s and "<!--" not in s
     assert "phase: cut" in s and "week: 7" in s
-    assert "rotation candidate" in s and "never collected: soreness ratings" in s
+    assert "rotation candidate" in s and "optional, not collected (would sharpen coaching): soreness ratings" in s
     assert "approved_changes: []" in s
     assert "decrease_calories" not in s  # pending proposals never reach the LLM
     assert "<knowledge>\n[" in s

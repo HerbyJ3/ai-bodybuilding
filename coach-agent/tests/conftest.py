@@ -42,6 +42,9 @@ def trend(pct_bw_per_week: float, bw: float = 200.0, weeks: int = 3) -> WeightTr
 def state(phase: str | None = "cut", week: int = 5, target: float = 0.75, pct: float | None = None,
           adherence: float | None = 95, hunger: int = 3, **kw) -> ClientState:
     as_of = date(2026, 3, 31)
+    if "current_macros" not in kw:  # macro targets are minimum data for nutrition rules
+        from schemas.events import MacroTargets
+        kw["current_macros"] = {"moderate": MacroTargets(protein_g=200, carb_g=300, fat_g=80)}
     st = ClientState(client_id=CID, as_of=as_of, **kw)
     if phase:
         st.phase = PhaseState(phase=phase, start_date=as_of - timedelta(days=7 * (week - 1)),

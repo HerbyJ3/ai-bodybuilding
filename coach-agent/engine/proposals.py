@@ -93,7 +93,8 @@ def score(p: Proposal, state: ClientState, cfg: Config) -> Proposal:
         conf = "medium"
     else:
         conf = "high"
-    if domain == "nutrition" and "no_current_targets" in p.data_quality_flags and conf == "high":
+    # Optional data that is missing (e.g. no recent check-in) never blocks, but caps confidence.
+    if domain == "nutrition" and "no_recent_checkin" in p.data_quality_flags and conf == "high":
         conf = "medium"
     flags = sorted(set(p.data_quality_flags) | {f.code for f in relevant})
     return p.model_copy(update={"confidence": conf, "data_quality_flags": flags})
