@@ -10,3 +10,10 @@ document.querySelectorAll(".msg.draft .copy").forEach(btn => btn.addEventListene
 }));
 const msgs = document.querySelector(".messages");
 if (msgs) msgs.scrollTop = msgs.scrollHeight;
+
+// "Macros hit?": show the per-macro amounts only when "No" is chosen.
+document.querySelectorAll(".macro-form").forEach(f => {
+  const sel = f.querySelector(".hit-select"), off = f.querySelector(".off-by");
+  const sync = () => { off.hidden = sel.value !== "no"; };
+  sel.addEventListener("change", sync); sync();
+});

@@ -18,7 +18,19 @@ coach fetch-assets         # optional, once: save the Higgsfield-made graphics f
 ```
 Clients, weight chart, history review, approval queue (approve / modify / reject), and a saved conversation
 with Mr. J per client: reply to him, ask questions, or have him draft the weekly check-in and copy it.
-It runs only on your computer; the only thing sent out is Mr. J's messages to Claude.
+Also on each client page: a **check-in** form (hunger, energy, training feel, sleep hours, any date), a daily
+**"Macros hit?"** log (yes, or how many grams over/under per macro), and file uploads in the chat so you can
+send Mr. J a training plan or results (PDF, .docx, .txt).
+It runs only on your computer; the only thing sent out is Mr. J's messages to Claude (including any attached file).
+
+## MyFitnessPal food logs
+MyFitnessPal has no public API, so the coach imports its reports instead (dashboard: **Food logs → Import**, or
+`coach import-mfp CLIENT-001 <files> --db data/client-001/coach.db`):
+- **Premium export:** myfitnesspal.com → Settings → Account → *Download Your Data* → upload the ZIP (or its CSVs).
+  Nutrition becomes daily food logs, Progress becomes weigh-ins, cardio from Exercise becomes cardio sessions.
+- **Free accounts:** Reports → *Printable Diary* → browser "Save page as" (.html) → upload it.
+Re-importing is safe (duplicates are skipped; an edited day replaces the old total). Food logs are optional, but with
+3+ weeks of them the engine can measure the client's real maintenance calories.
 
 ## Try it with the synthetic sample client
 ```bash

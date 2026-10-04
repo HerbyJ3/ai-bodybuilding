@@ -33,6 +33,21 @@ def import_csv(client_id: str, csv_dir: Path, mapping: Path, db: Path = DEFAULT_
                           indent=2, default=str))
 
 
+@app.command("import-mfp")
+def import_mfp(client_id: str, files: list[Path], db: Path = DEFAULT_DB,
+               unit: str = typer.Option("lb", help="weight unit when the export doesn't say (lb|kg)")) -> None:
+    """Import MyFitnessPal reports: Premium export ZIP/CSVs or a saved Printable Diary (HTML)."""
+    from ingest.myfitnesspal import import_paths
+    store = EventStore(db)
+    if not store.has_consent(client_id):
+        typer.echo(f"no consent recorded for {client_id}; onboard the client first", err=True)
+        raise typer.Exit(1)
+    res = import_paths(client_id, files, unit)
+    inserted, dupes = store.append(res.events)
+    typer.echo(json.dumps({"inserted": inserted, "already_imported": dupes, **res.summary()},
+                          indent=2, default=str))
+
+
 @app.command("onboard")
 def onboard_cmd(config: Path, db: Path = DEFAULT_DB, report: Path | None = None) -> None:
     """Mid-program onboarding: import history, backdate phase/meso, report gaps."""

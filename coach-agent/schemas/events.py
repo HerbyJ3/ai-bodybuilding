@@ -79,11 +79,31 @@ class IntakeLogged(_Payload):
 
 
 class WeeklyCheckin(_Payload):
-    adherence_pct: float = Field(ge=0, le=100)
+    adherence_pct: float | None = Field(default=None, ge=0, le=100)  # optional; daily macro logs can stand in
     hunger: Rating15
     energy: Rating15
-    sleep: Rating15
+    sleep: Rating15 | None = None  # 1-5 quality rating (CSV imports)
+    sleep_hours: float | None = Field(default=None, ge=0, le=24)  # dashboard dropdown
+    training_feel: Literal["crap", "good", "fantastic"] | None = None
     notes: str = ""
+
+
+MacroKey = Literal["protein_g", "carb_g", "fat_g"]
+
+
+class MacroAdherenceLogged(_Payload):
+    """Coach/client answer to 'Macros hit?' for one day; when missed, grams over (+) or under (-)."""
+    date: date
+    hit: bool
+    off_by: dict[MacroKey, float] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _consistent(self) -> "MacroAdherenceLogged":
+        if self.hit and self.off_by:
+            raise ValueError("a day marked as hit has no misses")
+        if not self.hit and not any(self.off_by.values()):
+            raise ValueError("a missed day needs at least one macro and amount")
+        return self
 
 
 class CardioLogged(_Payload):
@@ -194,6 +214,7 @@ PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     "nutrition_targets_set": NutritionTargetsSet,
     "profile_updated": ProfileUpdated,
     "limitation_recorded": LimitationRecorded,
+    "macro_adherence_logged": MacroAdherenceLogged,
     "onboarding_completed": OnboardingCompleted,
 }
 EventType = Literal[
@@ -201,7 +222,7 @@ EventType = Literal[
     "joint_pain_reported", "weigh_in", "intake_logged", "weekly_checkin",
     "cardio_logged", "phase_started", "meso_started", "proposal_decided",
     "consent_recorded", "deload_completed", "nutrition_targets_set",
-    "profile_updated", "onboarding_completed", "limitation_recorded",
+    "profile_updated", "onboarding_completed", "limitation_recorded", "macro_adherence_logged",
 ]
 
 

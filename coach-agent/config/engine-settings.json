@@ -101,10 +101,12 @@
   },
   "adherence": {
     "value": {
-      "checkin_max_age_days": 14
+      "checkin_max_age_days": 14,
+      "min_daily_macro_logs": 3,
+      "daily_log_window_days": 7
     },
     "_provisional": true,
-    "_source": "owner decision 2026-10-04: check-ins are optional; without a recent one, adjustments proceed at most medium confidence. The 14-day 'recent' window is a placeholder"
+    "_source": "owner decision 2026-10-04: check-ins are optional; without a recent one, adjustments proceed at most medium confidence. The 14-day 'recent' window is a placeholder; daily 'Macros hit?' logs (owner request 2026-10-04) give adherence % = hit days / logged days over the window when the check-in has no adherence number. Window and minimum are placeholders"
   },
   "cardio_lever": {
     "value": {

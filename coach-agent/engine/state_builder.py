@@ -140,7 +140,9 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
                               planned_weeks=p.payload.planned_weeks, source=p.source.value)
 
     st.weight = _weight_trend(weigh, as_of, cfg)
-    intake = [(e.payload.date, e.payload.calories) for e in by_type["intake_logged"]]
+    # One intake per day: a later log for the same date (e.g. a re-exported, edited diary) wins.
+    latest_intake = {e.payload.date: e.payload.calories for e in by_type["intake_logged"]}
+    intake = sorted(latest_intake.items())
     st.maintenance = calibrate(st.weight, intake, as_of, cfg)
     recent = [k for d, k in intake if 0 <= (as_of - d).days < 14]
     st.avg_intake_kcal = round(sum(recent) / len(recent)) if recent else None
@@ -183,6 +185,16 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
         if (as_of - e.day).days < 7:
             st.joint_pain[e.payload.joint] = max(st.joint_pain.get(e.payload.joint, 0),
                                                  e.payload.severity)
+    window = cfg.setting("adherence.daily_log_window_days")
+    daily = {e.payload.date: e.payload for e in by_type["macro_adherence_logged"]
+             if 0 <= (as_of - e.payload.date).days < window}  # latest answer per day wins
+    if daily:
+        hits = sum(1 for p in daily.values() if p.hit)
+        st.macro_adherence = {
+            "days_logged": len(daily), "days_hit": hits, "window_days": window,
+            "pct": round(hits / len(daily) * 100), "recent": [
+                {"date": d.isoformat(), "hit": p.hit, "off_by": dict(p.off_by)}
+                for d, p in sorted(daily.items(), reverse=True)]}
     checkins = [dict(e.payload.model_dump(), date=e.day) for e in by_type["weekly_checkin"]]
     st.checkins_recent = list(reversed(checkins))[:4]
     st.latest_checkin = st.checkins_recent[0] if st.checkins_recent else None

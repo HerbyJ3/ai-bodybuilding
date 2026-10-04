@@ -28,7 +28,8 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] `maintenance_confidence`: intake days/weigh-ins per week for high/medium calibration confidence
 - [ ] `cardio`: kcal/min by intensity when est_kcal is missing (BUILD_SPEC §7.4)
 - [ ] `energy`: Atwater kcal/g (4/4/9)
-- [ ] `adherence`: a check-in counts as recent for 14 days
+- [ ] `adherence`: a check-in counts as recent for 14 days; daily "Macros hit?" logs give adherence % (hit days / logged days, last 7 days, needs ≥ 3 logged days) when the check-in has no adherence number
+- [ ] Dashboard check-in mapping: hunger/energy low/mid/high stored as 1/3/5 on the engine's 1–5 scale (high hunger ≥ 4 counts as diet fatigue); sleep stored as hours
 - [ ] `cardio_lever`: default ceilings (5 sessions/week, 45 min/session), +10 min duration step, 0.1 lb/week noise floor, 14-day lookback
 - [ ] Cardio rules (BUILD_SPEC §7.4)
 - [ ] Recomp phase guidance: the engine emits `flag` only
@@ -42,6 +43,11 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] Cut→maintenance: only the first step (midpoint jump) is automated. The ~20 % step-ups every 3–4 weeks are left to the coach (base of "20 %" is ambiguous)
 - [ ] History review (§14): rotation candidate = kept ≥ 2 consecutive complete mesos and flat/regressed in the latest; "best set" = heaviest then most reps (no e1RM); across-meso comparison at the latest common meso week (RIR may differ when meso lengths differ)
 - [ ] Weeks are trailing 7-day windows ending at `as_of` (data quality, trend); meso/phase weeks count from their start event
+
+## MyFitnessPal import
+- [ ] Column names follow MyFitnessPal's documented Premium export and Printable Diary; verify against a real export the first time (headers are matched loosely, by meaning)
+- [ ] Imported cardio has no intensity in the export; recorded as `mod` (only matters when est_kcal is missing)
+- [ ] Body-fat and other measurements in the Progress file are reported but not stored (no event type yet)
 
 ## LLM layer (M8)
 - [ ] Retrieval is BM25 keyword search, not embeddings (no Anthropic embeddings endpoint). Revisit if the knowledge corpus grows
