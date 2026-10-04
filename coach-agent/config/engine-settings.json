@@ -94,10 +94,10 @@
   },
   "calorie_step_cap": {
     "value": {
-      "max_kcal_change_per_step": 250
+      "max_kcal_change_per_step": 100
     },
     "_provisional": false,
-    "_source": "owner decision 2026-10-04: cap each calorie adjustment (~0.5 lb/week) so changes stay attributable; larger gaps close over several check-ins"
+    "_source": "owner decision 2026-10-04: cap each calorie adjustment at 100 kcal/day (~25 g carbs, ~0.2 lb/week: above the weekly-average noise floor) so changes stay attributable; larger gaps close over several check-ins"
   },
   "adherence": {
     "value": {

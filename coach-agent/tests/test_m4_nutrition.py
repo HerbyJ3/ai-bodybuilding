@@ -70,18 +70,18 @@ def test_cut_low_adherence_intervention_not_calorie_change(cfg):
 def test_cut_slow_loss_reduces_fat_then_carbs(cfg):
     st = state("cut", pct=-0.2, current_macros={"moderate": MT(protein_g=200, carb_g=300, fat_g=80)})
     [p] = adjustment.evaluate(st, cfg)
-    # gap 0.2 - 0.75 = -0.55 %BW = -1.1 lb/wk = -550 kcal/day, capped at 250 per step
+    # gap 0.2 - 0.75 = -0.55 %BW = -1.1 lb/wk = -550 kcal/day, capped at 100 per step
     assert p.action == "decrease_calories"
     assert p.inputs_used["full_gap_kcal_per_day"] == -550
-    assert p.proposed_value["kcal_per_day_change"] == -250 and "step_capped" in p.data_quality_flags
-    # fat 80 -> floor 60 (180 kcal), remaining 70 kcal from carbs
-    assert p.proposed_value["macros_by_day_type"]["moderate"] == {"protein_g": 200, "carb_g": 282, "fat_g": 60}
+    assert p.proposed_value["kcal_per_day_change"] == -100 and "step_capped" in p.data_quality_flags
+    # all 100 kcal from fat (80 -> 69 g, still above the 60 g floor); carbs untouched
+    assert p.proposed_value["macros_by_day_type"]["moderate"] == {"protein_g": 200, "carb_g": 300, "fat_g": 69}
 
 
 def test_cut_fat_at_floor_reduces_carbs(cfg):
     st = state("cut", pct=-0.2, current_macros={"moderate": MT(protein_g=200, carb_g=400, fat_g=60)})
     [p] = adjustment.evaluate(st, cfg)
-    assert p.proposed_value["macros_by_day_type"]["moderate"] == {"protein_g": 200, "carb_g": 338, "fat_g": 60}
+    assert p.proposed_value["macros_by_day_type"]["moderate"] == {"protein_g": 200, "carb_g": 375, "fat_g": 60}
 
 
 def test_cut_in_band_holds(cfg):
@@ -91,19 +91,19 @@ def test_cut_in_band_holds(cfg):
 
 def test_cut_too_fast_increases(cfg):
     [p] = adjustment.evaluate(state("cut", pct=-1.25), cfg)
-    assert p.action == "increase_calories" and p.proposed_value["kcal_per_day_change"] == 250
+    assert p.action == "increase_calories" and p.proposed_value["kcal_per_day_change"] == 100
     assert p.inputs_used["full_gap_kcal_per_day"] == 500
 
 
 def test_gain_too_fast_reduces_surplus(cfg):
     [p] = adjustment.evaluate(state("gain", target=0.4, pct=1.0), cfg)
-    assert p.action == "decrease_calories" and p.proposed_value["kcal_per_day_change"] == -250
+    assert p.action == "decrease_calories" and p.proposed_value["kcal_per_day_change"] == -100
     assert p.inputs_used["full_gap_kcal_per_day"] == -600
 
 
 def test_gain_too_slow_adds(cfg):
     [p] = adjustment.evaluate(state("gain", target=0.4, pct=0.1), cfg)
-    assert p.action == "increase_calories" and p.proposed_value["kcal_per_day_change"] == 250
+    assert p.action == "increase_calories" and p.proposed_value["kcal_per_day_change"] == 100
     assert p.inputs_used["full_gap_kcal_per_day"] == 300
 
 
@@ -123,7 +123,7 @@ def test_no_current_targets_flagged(cfg):
 def test_maintenance_band(cfg):
     assert adjustment.evaluate(state("maintenance", target=0, pct=0.3), cfg)[0].action == "hold"
     [p] = adjustment.evaluate(state("maintenance", target=0, pct=1.0), cfg)
-    assert p.action == "decrease_calories" and p.proposed_value["kcal_per_day_change"] == -250
+    assert p.action == "decrease_calories" and p.proposed_value["kcal_per_day_change"] == -100
 
 
 @pytest.mark.parametrize("phase", ["recomp", "mini_cut"])
@@ -210,9 +210,9 @@ def test_cardio_interference_flags_only(cfg):
 # --- owner decisions 2026-10-04 -----------------------------------------------------
 
 def test_small_gap_not_capped(cfg):
-    # losing 0.4 %/wk vs 0.6 target: gap 0.2 %BW = 0.4 lb/wk = 200 kcal/day, under the cap
-    [p] = adjustment.evaluate(state("cut", target=0.6, pct=-0.4), cfg)
-    assert p.proposed_value["kcal_per_day_change"] == p.inputs_used["full_gap_kcal_per_day"] == -200
+    # losing 0.48 %/wk vs 0.52 target: gap 0.04 %BW = 0.08 lb/wk = 40 kcal/day, under the cap
+    [p] = adjustment.evaluate(state("cut", target=0.52, pct=-0.48), cfg)
+    assert p.proposed_value["kcal_per_day_change"] == p.inputs_used["full_gap_kcal_per_day"] == -40
     assert "step_capped" not in p.data_quality_flags
 
 

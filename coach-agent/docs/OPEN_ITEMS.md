@@ -12,7 +12,7 @@
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
 
 ## Decided 2026-10-04 (from the first real-data test)
-- [x] **Calorie step cap:** each adjustment is capped at 250 kcal/day (`calorie_step_cap`); the full gap is kept in `inputs_used` and flagged `step_capped`
+- [x] **Calorie step cap:** each adjustment is capped at 100 kcal/day (`calorie_step_cap`; lowered from 250 the same day to match the ~25 g carb steps that worked in practice); the full gap is kept in `inputs_used` and flagged `step_capped`
 - [x] **No recent check-in → hold calories** (flag `no_recent_checkin`). The "recent" window is provisional (`adherence`)
 - [x] **Day type per client:** the coach labels each client's days (e.g. training day = `light`) in the targets data. Onboarding warns and proposals flag `carbs_below_day_type_minimum:<day>` when a day's carbs are already below its book minimum
 - [x] **Cardio as a lever** in a cut, before calories: frequency, then duration, each only if it clears the noise floor; same modality (limitation-safe); coach-approved. Per-client ceilings via onboarding `cardio_max_sessions_per_week` / `cardio_max_minutes_per_session`. Amends BUILD_SPEC §7.4
