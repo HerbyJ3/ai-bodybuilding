@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from urllib.parse import urlencode
 from datetime import date
 from pathlib import Path
 from typing import Any, Callable
@@ -49,6 +50,20 @@ def fetch_assets() -> list[str]:
     return done
 
 
+def recent_intake(events, as_of: date, state, days: int = 14) -> list[dict[str, Any]]:
+    """Last `days` logged days (latest log per date wins), newest first, with the moderate/first
+    day-type calorie target for comparison."""
+    from engine.nutrition.macros import kcal_of
+    latest = {}
+    for e in events:
+        if e.type == "intake_logged" and 0 <= (as_of - e.payload.date).days < days:
+            latest[e.payload.date] = e.payload
+    targets = {k: round(kcal_of(m, load_config())) for k, m in (state.current_macros or {}).items()}
+    return [{"date": d, "calories": round(p.calories), "protein_g": round(p.protein_g),
+             "carb_g": round(p.carb_g), "fat_g": round(p.fat_g), "targets": targets}
+            for d, p in sorted(latest.items(), reverse=True)]
+
+
 def _default_llm():
     from llm.client import ClaudeClient
     from llm.settings import llm_settings
@@ -79,7 +94,7 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             raise HTTPException(400, "as_of must be YYYY-MM-DD")
 
     def back(cid: str, as_of: str | None, anchor: str = "", **params: str) -> RedirectResponse:
-        q = "&".join(f"{k}={v}" for k, v in {"as_of": as_of or "", **params}.items() if v)
+        q = urlencode({k: v for k, v in {"as_of": as_of or "", **params}.items() if v})
         return RedirectResponse(f"/client/{cid}?{q}#{anchor}", status_code=303)
 
     @app.get("/", response_class=HTMLResponse)
@@ -99,7 +114,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         return tpl.TemplateResponse(request, "index.html", {"cards": cards, "as_of": d.isoformat()})
 
     @app.get("/client/{cid}", response_class=HTMLResponse)
-    def client_page(request: Request, cid: str, as_of: str | None = None, error: str = ""):
+    def client_page(request: Request, cid: str, as_of: str | None = None, error: str = "",
+                    notice: str = ""):
         ref, store = client(cid)
         d = day(as_of)
         events = store.read(cid)
@@ -117,7 +133,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             "info": [i for i in items if i.status == "info"],
             "decided": [i for i in items if i.status in ("approved", "rejected", "modified")][-5:],
             "chart": weight_svg(series, markers), "series": series,
-            "chat": ChatStore(store).history(cid), "error": error,
+            "chat": ChatStore(store).history(cid), "error": error, "notice": notice,
+            "intake": recent_intake(events, d, st),
         }
         return tpl.TemplateResponse(request, "client.html", ctx)
 
@@ -143,6 +160,27 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         except (QueueError, json.JSONDecodeError) as exc:
             return back(cid, as_of, "queue", error=f"{decision} failed: {exc}")
         return back(cid, as_of, "queue")
+
+    @app.post("/client/{cid}/import-mfp")
+    async def import_mfp(cid: str, as_of: str = Form(""), unit: str = Form("lb"),
+                         files: list[UploadFile] = File(...)):
+        from ingest.myfitnesspal import parse_files
+        _, store = client(cid)
+        if unit not in ("lb", "kg"):
+            unit = "lb"
+        uploads = {}
+        for f in files:
+            name = Path(f.filename or "").name
+            if not re.match(r"^[A-Za-z0-9 ._()-]+\.(csv|zip|html?|pdf)$", name, re.IGNORECASE):
+                return back(cid, as_of, "food", error=f"'{name}' is not a MyFitnessPal report file")
+            uploads[name] = await f.read()
+        res = parse_files(cid, uploads, unit)
+        inserted, dupes = store.append(res.events)
+        parts = [f"{i['name']}: {i['kind']}, {i['imported']} rows" + (f" ({'; '.join(i['notes'])})"
+                                                                      if i["notes"] else "")
+                 for i in res.files]
+        msg = f"MyFitnessPal import: {inserted} new, {dupes} already imported. " + " | ".join(parts)
+        return back(cid, as_of, "food", notice=msg)
 
     def _ask(cid: str, as_of: str, text: str, kind: str) -> str | None:
         from llm.coach import open_session

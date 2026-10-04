@@ -140,7 +140,9 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
                               planned_weeks=p.payload.planned_weeks, source=p.source.value)
 
     st.weight = _weight_trend(weigh, as_of, cfg)
-    intake = [(e.payload.date, e.payload.calories) for e in by_type["intake_logged"]]
+    # One intake per day: a later log for the same date (e.g. a re-exported, edited diary) wins.
+    latest_intake = {e.payload.date: e.payload.calories for e in by_type["intake_logged"]}
+    intake = sorted(latest_intake.items())
     st.maintenance = calibrate(st.weight, intake, as_of, cfg)
     recent = [k for d, k in intake if 0 <= (as_of - d).days < 14]
     st.avg_intake_kcal = round(sum(recent) / len(recent)) if recent else None

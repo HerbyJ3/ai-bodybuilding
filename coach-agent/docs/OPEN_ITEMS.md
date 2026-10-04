@@ -43,6 +43,11 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] History review (§14): rotation candidate = kept ≥ 2 consecutive complete mesos and flat/regressed in the latest; "best set" = heaviest then most reps (no e1RM); across-meso comparison at the latest common meso week (RIR may differ when meso lengths differ)
 - [ ] Weeks are trailing 7-day windows ending at `as_of` (data quality, trend); meso/phase weeks count from their start event
 
+## MyFitnessPal import
+- [ ] Column names follow MyFitnessPal's documented Premium export and Printable Diary; verify against a real export the first time (headers are matched loosely, by meaning)
+- [ ] Imported cardio has no intensity in the export; recorded as `mod` (only matters when est_kcal is missing)
+- [ ] Body-fat and other measurements in the Progress file are reported but not stored (no event type yet)
+
 ## LLM layer (M8)
 - [ ] Retrieval is BM25 keyword search, not embeddings (no Anthropic embeddings endpoint). Revisit if the knowledge corpus grows
 - [ ] Not yet run against the live API from the build environment (no key there). Run `coach checkin` once with a real key and review the tone against the reference example

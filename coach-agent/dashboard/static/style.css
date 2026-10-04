@@ -73,7 +73,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 16px 48px; }
 .pill.attention { background: var(--attention); color: #fff; }
 .tag { display: inline-block; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--teal); font-weight: 700; margin-right: 8px; }
 .banner { padding: 10px 14px; border-radius: 10px; margin: 0 0 16px; }
-.banner.error { background: var(--error-bg); } .banner.warn { background: var(--warn-bg); }
+.banner.error { background: var(--error-bg); } .banner.ok { background: var(--surface-2); border: 1px solid var(--line); } .banner.warn { background: var(--warn-bg); }
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 8px 0; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
@@ -87,7 +87,7 @@ button, .btn { font: inherit; border: 0; border-radius: 10px; padding: 8px 14px;
 button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
 button.danger { color: var(--danger); } button.link { background: none; color: var(--muted); padding: 4px 0; text-decoration: underline; }
 button:disabled { opacity: .6; cursor: progress; }
-input, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+input, textarea, select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
 input[type=date] { width: auto; } label { display: block; } .inline label { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .proposal { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 12px 0; }
 .decide { display: grid; gap: 8px; margin-top: 10px; }

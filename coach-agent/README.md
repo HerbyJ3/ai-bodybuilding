@@ -20,6 +20,15 @@ Clients, weight chart, history review, approval queue (approve / modify / reject
 with Mr. J per client: reply to him, ask questions, or have him draft the weekly check-in and copy it.
 It runs only on your computer; the only thing sent out is Mr. J's messages to Claude.
 
+## MyFitnessPal food logs
+MyFitnessPal has no public API, so the coach imports its reports instead (dashboard: **Food logs → Import**, or
+`coach import-mfp CLIENT-001 <files> --db data/client-001/coach.db`):
+- **Premium export:** myfitnesspal.com → Settings → Account → *Download Your Data* → upload the ZIP (or its CSVs).
+  Nutrition becomes daily food logs, Progress becomes weigh-ins, cardio from Exercise becomes cardio sessions.
+- **Free accounts:** Reports → *Printable Diary* → browser "Save page as" (.html) → upload it.
+Re-importing is safe (duplicates are skipped; an edited day replaces the old total). Food logs are optional, but with
+3+ weeks of them the engine can measure the client's real maintenance calories.
+
 ## Try it with the synthetic sample client
 ```bash
 coach onboard samples/mid_cut_client/onboarding.json --report data/report.json
