@@ -109,6 +109,7 @@ class ClientState(BaseModel):
     joint_pain: dict[str, int] = Field(default_factory=dict)  # last 7 days, max severity
     latest_checkin: dict | None = None
     checkins_recent: list[dict] = Field(default_factory=list)  # most recent first
+    macro_adherence: dict | None = None  # {days_logged, days_hit, pct, window_days, recent: [...]}
     cardio_minutes_by_week: list[float] = Field(default_factory=list)  # most recent first
     cardio_recent: list[dict] = Field(default_factory=list)  # sessions in the lever lookback, oldest first
     cardio_max_sessions_per_week: int | None = None

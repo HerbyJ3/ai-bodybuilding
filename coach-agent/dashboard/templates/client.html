@@ -41,6 +41,32 @@
       {% for dt, m in st.current_macros.items() %}<tr><td>{{ dt|replace("_", " ") }}</td><td>{{ m.protein_g|round|int }} g</td><td>{{ m.carb_g|round|int }} g</td><td>{{ m.fat_g|round|int }} g</td></tr>{% endfor %}
       </tbody></table>
       {% else %}<p class="banner warn">No macro targets on record. They're required for calorie adjustments.</p>{% endif %}
+
+      <div id="macros" class="subsection">
+        <h3>Macros hit?</h3>
+        <form method="post" action="/client/{{ cid }}/macros-hit" class="macro-form">
+          <input type="hidden" name="as_of" value="{{ as_of }}">
+          <div class="row">
+            <label class="small inline">Date <input type="date" name="when" value="{{ as_of }}" max="{{ as_of }}"></label>
+            <label class="small inline">Hit?
+              <select name="hit" class="hit-select"><option value="yes">Yes</option><option value="no">No</option></select></label>
+          </div>
+          <div class="row off-by" hidden>
+            {% for m in ["protein", "carbs", "fat"] %}
+            <label class="small inline">{{ m|capitalize }}
+              <select name="off_{{ m }}"><option value="">on target</option>
+                {% for v in off_by_choices %}<option value="{{ v }}">{{ "%+d"|format(v) }} g ({{ "over" if v > 0 else "under" }})</option>{% endfor %}
+              </select></label>
+            {% endfor %}
+          </div>
+          <button class="ghost">Log day</button>
+        </form>
+        {% set ma = st.macro_adherence %}
+        {% if ma %}
+        <p class="small"><strong>{{ ma.days_hit }}/{{ ma.days_logged }}</strong> days hit in the last {{ ma.window_days }} days ({{ ma.pct }}%).</p>
+        <ul class="small daylog">{% for r in ma.recent %}<li>{{ r.date }}: {% if r.hit %}hit{% else %}missed: {% for k, v in r.off_by.items() %}{{ k|replace("_g", "")|replace("carb", "carbs") }} {{ "%+d"|format(v) }} g{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
     </section>
 
     <section class="card" id="food">
@@ -113,6 +139,26 @@
         <ul class="small">{% for i in decided %}<li><strong>{{ i.status }}</strong>: {{ i.proposal.rationale_short }}</li>{% endfor %}</ul></details>{% endif %}
     </section>
 
+    <section class="card" id="checkins">
+      <h2>Check-in</h2>
+      <form method="post" action="/client/{{ cid }}/checkin-log" class="checkin-form">
+        <input type="hidden" name="as_of" value="{{ as_of }}">
+        <div class="grid-2">
+          <label class="small">Date <input type="date" name="when" value="{{ as_of }}" max="{{ as_of }}"></label>
+          <label class="small">Hunger <select name="hunger" required><option value="">–</option><option value="low">Low</option><option value="mid">Mid</option><option value="high">High</option></select></label>
+          <label class="small">Energy <select name="energy" required><option value="">–</option><option value="low">Low</option><option value="mid">Mid</option><option value="high">High</option></select></label>
+          <label class="small">Training feels <select name="training_feel"><option value="">–</option><option value="crap">Crap</option><option value="good">Good</option><option value="fantastic">Fantastic</option></select></label>
+          <label class="small">Sleep <select name="sleep_hours"><option value="">–</option>{% for h in range(8, 0, -1) %}<option value="{{ h }}">{{ h }} hour{{ "s" if h > 1 else "" }}</option>{% endfor %}</select></label>
+          <label class="small">Notes <input name="notes" placeholder="optional"></label>
+        </div>
+        <button class="ghost">Save check-in</button>
+      </form>
+      {% if st.checkins_recent %}
+      <table class="small"><thead><tr><th>Date</th><th>Hunger</th><th>Energy</th><th>Training</th><th>Sleep</th></tr></thead><tbody>
+      {% for c in st.checkins_recent %}<tr><td>{{ c.date }}</td><td>{{ level_name(c.hunger) }}</td><td>{{ level_name(c.energy) }}</td><td>{{ c.training_feel or "–" }}</td><td>{{ (c.sleep_hours|int ~ " h") if c.sleep_hours else (c.sleep ~ "/5" if c.sleep else "–") }}</td></tr>{% endfor %}
+      </tbody></table>{% endif %}
+    </section>
+
     <section class="card chat" id="chat">
       <div class="row space"><h2>Mr. J</h2>
         <form method="post" action="/client/{{ cid }}/checkin"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="ghost" data-busy="Drafting…">Draft check-in</button></form></div>
@@ -126,10 +172,14 @@
           </div>
         {% endfor %}
       </div>
-      <form method="post" action="/client/{{ cid }}/chat" class="composer">
+      <form method="post" action="/client/{{ cid }}/chat" class="composer" enctype="multipart/form-data">
         <input type="hidden" name="as_of" value="{{ as_of }}">
-        <textarea name="message" rows="3" placeholder="Reply to Mr. J… (e.g. “Make the draft shorter” or “Why not more cardio?”)" required></textarea>
-        <button data-busy="Mr. J is thinking…">Send</button>
+        <textarea name="message" rows="3" placeholder="Reply to Mr. J… (e.g. “Make the draft shorter” or “Here are this week's training results”)"></textarea>
+        <div class="row space">
+          <label class="small attach">Attach training plan or results (PDF, .docx, .txt)
+            <input type="file" name="files" multiple accept=".pdf,.docx,.txt,.md,.csv"></label>
+          <button data-busy="Mr. J is thinking…">Send</button>
+        </div>
       </form>
       {% if chat %}<form method="post" action="/client/{{ cid }}/chat/clear"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="link small">Clear conversation</button></form>{% endif %}
     </section>

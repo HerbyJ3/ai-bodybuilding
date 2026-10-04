@@ -221,7 +221,9 @@ def phase_review(events: list[Event], state: ClientState, cfg: Config,
         if ck:
             row["checkins"] = {
                 "count": len(ck),
-                "avg_adherence_pct": round(sum(c.adherence_pct for c in ck) / len(ck), 1),
+                "avg_adherence_pct": (round(sum(a) / len(a), 1)
+                                      if (a := [c.adherence_pct for c in ck if c.adherence_pct is not None])
+                                      else None),
                 "hunger_first_last": [ck[0].hunger, ck[-1].hunger],
                 "energy_first_last": [ck[0].energy, ck[-1].energy],
                 "sleep_first_last": [ck[0].sleep, ck[-1].sleep]}
@@ -338,7 +340,7 @@ def findings(training: dict, phases: list[dict], habits: dict, cfg: Config,
                              f"with this weight change implies maintenance ≈ "
                              f"{p['estimated_maintenance_kcal']} kcal/day")
         ck = p.get("checkins")
-        if ck and ck["avg_adherence_pct"] < cfg.setting("adherence_threshold_pct"):
+        if ck and ck["avg_adherence_pct"] is not None and ck["avg_adherence_pct"] < cfg.setting("adherence_threshold_pct"):
             add("nutrition", f"{p['phase']} from {p['start_date']}: average adherence "
                              f"{ck['avg_adherence_pct']}% is below the {cfg.setting('adherence_threshold_pct')}% "
                              "threshold; results reflect adherence, not the plan")

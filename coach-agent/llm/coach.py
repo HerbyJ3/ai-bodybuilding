@@ -29,8 +29,10 @@ class CoachSession:
     top_k: int
     messages: list[dict[str, Any]] = field(default_factory=list)
 
-    def ask(self, text: str) -> Reply:
-        self.messages.append({"role": "user", "content": text})
+    def ask(self, text: str, attachments: list[dict[str, Any]] | None = None) -> Reply:
+        """`attachments`: content blocks from llm.attachments.to_block (documents go before the text)."""
+        content: Any = text if not attachments else [*attachments, {"type": "text", "text": text}]
+        self.messages.append({"role": "user", "content": content})
         return self.llm.respond(self.system, self.messages, TOOLS,
                                 lambda name, args: run_tool(name, args, self.state, self.cfg, self.top_k))
 

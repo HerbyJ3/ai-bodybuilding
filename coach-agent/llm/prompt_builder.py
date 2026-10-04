@@ -111,12 +111,15 @@ def session_log(state: ClientState, approved: list[Event], findings: list[dict[s
                           "value": e.payload.final_value, "engine_rationale": p.get("rationale_short"),
                           "coach_note": e.payload.coach_note or None})
     checkins = [{"date": c["date"].isoformat() if isinstance(c["date"], date) else c["date"],
-                 **{k: c[k] for k in ("adherence_pct", "hunger", "energy", "sleep")}}
+                 **{k: c.get(k) for k in ("adherence_pct", "hunger", "energy", "sleep", "sleep_hours",
+                                          "training_feel", "notes") if c.get(k) not in (None, "")}}
                 for c in state.checkins_recent[:2]]
     return {
         "note": "Only coach-APPROVED changes are listed. Present nothing else as a plan change.",
         "approved_changes": decisions,
         "recent_checkins": checkins,
+        "checkin_scales": "hunger/energy 1=low, 3=mid, 5=high; sleep_hours = hours slept",
+        "daily_macro_adherence": state.macro_adherence,
         "history_review_findings": [f"[{f['area']}] {f['finding']}" for f in findings],
     }
 

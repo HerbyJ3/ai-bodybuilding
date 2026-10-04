@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from urllib.parse import urlencode
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -24,8 +24,21 @@ from ingest.onboarding import OnboardingError, load_onboarding_config, onboard
 from store.event_store import EventStore
 
 HERE = Path(__file__).resolve().parent
+LEVELS = {"low": 1, "mid": 3, "high": 5}  # dashboard hunger/energy -> engine 1-5 scale
+LEVEL_NAMES = {1: "low", 3: "mid", 5: "high"}
+MACRO_KEYS = {"protein": "protein_g", "carbs": "carb_g", "fat": "fat_g"}
+OFF_BY_CHOICES = [-100, -75, -50, -40, -30, -20, -10, 10, 20, 30, 40, 50, 75, 100]
 UPLOAD_NAME = re.compile(r"^[A-Za-z0-9._-]+\.(csv|json)$")
 SAFE_DIR = re.compile(r"[^a-z0-9_-]+")
+
+
+def level_name(v: Any) -> str:
+    """1/3/5 come from the dashboard (low/mid/high); 2/4 from 1-5 imports are shown with the number."""
+    if v in LEVEL_NAMES:
+        return LEVEL_NAMES[v]
+    if v in (2, 4):
+        return f"{'low' if v == 2 else 'high'} ({v})"
+    return "–" if v is None else str(v)
 
 
 def load_assets() -> dict[str, dict[str, str]]:
@@ -80,6 +93,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
     tpl = Jinja2Templates(directory=HERE / "templates")
     tpl.env.filters["pretty"] = lambda v: json.dumps(v, indent=2, default=str)
     tpl.env.globals["asset"] = asset_url
+    tpl.env.globals["level_name"] = level_name
+    tpl.env.globals["off_by_choices"] = OFF_BY_CHOICES
 
     def client(cid: str) -> tuple[ClientRef, EventStore]:
         ref = find_clients(data_dir).get(cid)
@@ -161,6 +176,51 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             return back(cid, as_of, "queue", error=f"{decision} failed: {exc}")
         return back(cid, as_of, "queue")
 
+    def _when(value: str, as_of: str) -> date:
+        return day(value or as_of)
+
+    @app.post("/client/{cid}/checkin-log")
+    def checkin_log(cid: str, as_of: str = Form(""), when: str = Form(""), hunger: str = Form(...),
+                    energy: str = Form(...), training_feel: str = Form(""), sleep_hours: str = Form(""),
+                    notes: str = Form("")):
+        from schemas.events import Source, make_event
+        _, store = client(cid)
+        if hunger not in LEVELS or energy not in LEVELS:
+            return back(cid, as_of, "checkins", error="hunger and energy must be low, mid or high")
+        payload: dict[str, Any] = {"hunger": LEVELS[hunger], "energy": LEVELS[energy], "notes": notes.strip()}
+        if training_feel:
+            payload["training_feel"] = training_feel
+        if sleep_hours:
+            payload["sleep_hours"] = float(sleep_hours)
+        try:
+            store.append([make_event(cid, "weekly_checkin", _when(when, as_of), payload, Source.coach)])
+        except ValueError as exc:
+            return back(cid, as_of, "checkins", error=f"check-in not saved: {exc}")
+        return back(cid, as_of, "checkins", notice="Check-in saved")
+
+    @app.post("/client/{cid}/macros-hit")
+    async def macros_hit(request: Request, cid: str):
+        from schemas.events import Source, make_event
+        _, store = client(cid)
+        form = await request.form()
+        as_of = str(form.get("as_of", ""))
+        hit = form.get("hit") == "yes"
+        off_by = {}
+        if not hit:
+            for name, key in MACRO_KEYS.items():
+                v = str(form.get(f"off_{name}", "") or "")
+                if v:
+                    off_by[key] = float(v)
+        try:
+            ev = make_event(cid, "macro_adherence_logged", _when(str(form.get("when", "")), as_of),
+                            {"date": _when(str(form.get("when", "")), as_of), "hit": hit, "off_by": off_by},
+                            Source.coach)
+            store.append([ev])
+        except ValueError as exc:
+            msg = str(exc).split("\n")[-1] if "validation" in str(exc).lower() else str(exc)
+            return back(cid, as_of, "macros", error=f"not saved: {msg.strip()}")
+        return back(cid, as_of, "macros", notice="Macros logged")
+
     @app.post("/client/{cid}/import-mfp")
     async def import_mfp(cid: str, as_of: str = Form(""), unit: str = Form("lb"),
                          files: list[UploadFile] = File(...)):
@@ -182,26 +242,53 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         msg = f"MyFitnessPal import: {inserted} new, {dupes} already imported. " + " | ".join(parts)
         return back(cid, as_of, "food", notice=msg)
 
-    def _ask(cid: str, as_of: str, text: str, kind: str) -> str | None:
+    def _ask(cid: str, as_of: str, text: str, kind: str,
+             attachments: list[tuple[str, bytes]] | None = None) -> str | None:
+        from llm.attachments import AttachmentError, to_block
         from llm.coach import open_session
-        _, store = client(cid)
+        ref, store = client(cid)
         chats = ChatStore(store)
         history = [{"role": m["role"], "content": m["content"]} for m in chats.history(cid)]
         try:
+            blocks = [to_block(n, b) for n, b in attachments or []]
+        except AttachmentError as exc:
+            return str(exc)
+        try:
             session = open_session(store, cfg, cid, day(as_of), llm_factory(), audience="coach",
                                    history=history)
-            reply = session.ask(text)
+            reply = session.ask(text, blocks or None)
         except Exception as exc:  # missing API key, network, etc.: show it, store nothing
             return f"Mr. J couldn't answer: {exc.__class__.__name__}: {exc}"
-        chats.add(cid, "user", text, "chat")
+        saved_note = ""
+        if attachments:
+            folder = ref.db_path.parent / "attachments"
+            folder.mkdir(exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            for n, b in attachments:
+                (folder / f"{stamp}-{n}").write_bytes(b)
+            saved_note = "\n\n[Attached: " + ", ".join(n for n, _ in attachments) + "]"
+        chats.add(cid, "user", text + saved_note, "chat")
         chats.add(cid, "assistant", reply.text, kind)
         return None
 
     @app.post("/client/{cid}/chat")
-    def chat(cid: str, as_of: str = Form(""), message: str = Form(...)):
-        if not message.strip():
+    async def chat(cid: str, as_of: str = Form(""), message: str = Form(""),
+                   files: list[UploadFile] = File(default=[])):
+        uploads = []
+        for f in files:
+            name = Path(f.filename or "").name
+            if not name:
+                continue  # empty file input
+            if not re.match(r"^[A-Za-z0-9 ._()-]+$", name):
+                return back(cid, as_of, "chat", error=f"'{name}': please rename the file (letters, numbers, . _ - only)")
+            uploads.append((name, await f.read()))
+        if len(uploads) > 3:
+            return back(cid, as_of, "chat", error="attach up to 3 files at a time")
+        text = message.strip() or ("Here's a training file for this client. Please review it."
+                                   if uploads else "")
+        if not text:
             return back(cid, as_of, "chat")
-        err = _ask(cid, as_of, message.strip(), "chat")
+        err = _ask(cid, as_of, text, "chat", uploads)
         return back(cid, as_of, "chat", error=err or "")
 
     @app.post("/client/{cid}/checkin")

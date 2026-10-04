@@ -28,7 +28,8 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] `maintenance_confidence`: intake days/weigh-ins per week for high/medium calibration confidence
 - [ ] `cardio`: kcal/min by intensity when est_kcal is missing (BUILD_SPEC §7.4)
 - [ ] `energy`: Atwater kcal/g (4/4/9)
-- [ ] `adherence`: a check-in counts as recent for 14 days
+- [ ] `adherence`: a check-in counts as recent for 14 days; daily "Macros hit?" logs give adherence % (hit days / logged days, last 7 days, needs ≥ 3 logged days) when the check-in has no adherence number
+- [ ] Dashboard check-in mapping: hunger/energy low/mid/high stored as 1/3/5 on the engine's 1–5 scale (high hunger ≥ 4 counts as diet fatigue); sleep stored as hours
 - [ ] `cardio_lever`: default ceilings (5 sessions/week, 45 min/session), +10 min duration step, 0.1 lb/week noise floor, 14-day lookback
 - [ ] Cardio rules (BUILD_SPEC §7.4)
 - [ ] Recomp phase guidance: the engine emits `flag` only

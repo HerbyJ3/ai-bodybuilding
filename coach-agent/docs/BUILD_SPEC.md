@@ -144,7 +144,8 @@ Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client`
 | `joint_pain_reported` | muscle/joint, severity (0–3), exercise_id | Any time |
 | `weigh_in` | weight, unit, conditions (fasted/post-bathroom/etc.) | 2–3× per week |
 | `intake_logged` | date, calories, protein_g, carb_g, fat_g | Daily (optional; e.g. imported from MyFitnessPal). One per day counts: the latest log for a date wins |
-| `weekly_checkin` | adherence_pct, hunger (1–5), energy (1–5), sleep (1–5), notes | Weekly |
+| `weekly_checkin` | adherence_pct?, hunger (1–5), energy (1–5), sleep (1–5)?, sleep_hours?, training_feel (crap/good/fantastic)?, notes | Weekly (dashboard form or import) |
+| `macro_adherence_logged` | date, hit (bool), off_by {protein_g/carb_g/fat_g: ± grams} | Daily, optional ("Macros hit?") — gives adherence % when no check-in adherence |
 | `cardio_logged` | date, modality, minutes, intensity (low/mod/high), est_kcal (optional) | Each session |
 | `phase_started` | phase (gain/cut/maintenance/mini_cut/recomp), target_rate_pct_bw, planned_weeks | Coach action |
 | `meso_started` | meso_id, weeks_planned, exercises per muscle, starting sets per muscle | Coach action |

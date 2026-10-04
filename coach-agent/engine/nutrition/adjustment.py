@@ -54,12 +54,18 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
     # Minimum data: weigh-ins (trend check below) + macro targets. Check-ins are optional:
     # without a recent one we proceed, and scoring caps confidence at medium.
     recent_checkin = checkin is not None and (as_of - checkin["date"]).days <= max_age
-    optional_flags = [] if recent_checkin else ["no_recent_checkin"]
-    if recent_checkin and checkin["adherence_pct"] < threshold:
+    adherence, adherence_source = None, None
+    if recent_checkin and checkin.get("adherence_pct") is not None:
+        adherence, adherence_source = checkin["adherence_pct"], "weekly check-in"
+    elif (ma := state.macro_adherence) and ma["days_logged"] >= cfg.setting("adherence.min_daily_macro_logs"):
+        adherence = ma["pct"]
+        adherence_source = f"daily macro logs ({ma['days_hit']}/{ma['days_logged']} days hit)"
+    optional_flags = [] if adherence is not None else ["no_recent_checkin"]
+    if adherence is not None and adherence < threshold:
         return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "adherence_intervention",
-                             rationale=f"adherence {checkin['adherence_pct']:.0f}% < {threshold}%: "
+                             rationale=f"adherence {adherence:.0f}% ({adherence_source}) < {threshold}%: "
                                        "fix adherence before changing calories",
-                             inputs_used={"adherence_pct": checkin["adherence_pct"]},
+                             inputs_used={"adherence_pct": adherence, "adherence_source": adherence_source},
                              config_keys=["engine-settings:adherence_threshold_pct"])]
     if not state.current_macros:
         return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "hold",
@@ -78,7 +84,7 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
     target = ph.target_rate_pct_bw
     inputs = {"phase": ph.phase, "pct_bw_per_week": round(rate, 3), "target_rate_pct_bw": target,
               "bodyweight_lb": round(bw, 1), "trend_weeks": t.trend_weeks,
-              "adherence_pct": checkin["adherence_pct"] if recent_checkin else None}
+              "adherence_pct": adherence, "adherence_source": adherence_source}
 
     if ph.phase == "maintenance":
         band = cfg.nutrition("phases.maintenance.stable_band_pct_bw")
