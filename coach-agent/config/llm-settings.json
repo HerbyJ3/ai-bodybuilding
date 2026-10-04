@@ -1,0 +1,11 @@
+{
+  "_meta": "LLM layer settings (BUILD_SPEC §8). Provider: Claude (owner decision 2026-10-03).",
+  "coach_name": "Mr. J",
+  "model": "claude-opus-5-5",
+  "effort": "medium",
+  "max_tokens": 16000,
+  "max_tool_rounds": 6,
+  "knowledge_top_k": 4,
+  "refusal_fallbacks": "default",
+  "refusal_fallback_beta": "server-side-fallback-2026-07-01"
+}

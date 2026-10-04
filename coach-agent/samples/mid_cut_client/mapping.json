@@ -1,0 +1,150 @@
+{
+  "date_format": "%Y-%m-%d",
+  "streams": {
+    "weigh_in": {
+      "file": "weigh_ins.csv",
+      "date_column": "Date",
+      "fields": {
+        "weight": {
+          "column": "Body Weight"
+        },
+        "unit": {
+          "value": "lb"
+        },
+        "conditions": {
+          "column": "Conditions",
+          "default": "unspecified"
+        }
+      }
+    },
+    "intake_logged": {
+      "file": "intake.csv",
+      "date_column": "Date",
+      "fields": {
+        "calories": {
+          "column": "Calories"
+        },
+        "protein_g": {
+          "column": "Protein"
+        },
+        "carb_g": {
+          "column": "Carbs"
+        },
+        "fat_g": {
+          "column": "Fat"
+        }
+      }
+    },
+    "set_logged": {
+      "file": "sets.csv",
+      "date_column": "Date",
+      "derive_sessions": true,
+      "fields": {
+        "session_id": {
+          "column": "Session"
+        },
+        "exercise_id": {
+          "column": "Exercise"
+        },
+        "muscle": {
+          "column": "Muscle Group"
+        },
+        "load": {
+          "column": "Weight"
+        },
+        "reps": {
+          "column": "Reps"
+        },
+        "rir": {
+          "column": "RIR"
+        },
+        "set_index": {
+          "column": "Set #"
+        }
+      }
+    },
+    "stimulus_rated": {
+      "file": "stimulus.csv",
+      "date_column": "Date",
+      "fields": {
+        "session_id": {
+          "column": "Session"
+        },
+        "muscle": {
+          "column": "Muscle Group"
+        },
+        "mind_muscle": {
+          "column": "Mind-Muscle"
+        },
+        "pump": {
+          "column": "Pump"
+        },
+        "disruption": {
+          "column": "Disruption"
+        }
+      }
+    },
+    "weekly_checkin": {
+      "file": "checkins.csv",
+      "date_column": "Week Ending",
+      "fields": {
+        "adherence_pct": {
+          "column": "Adherence %"
+        },
+        "hunger": {
+          "column": "Hunger"
+        },
+        "energy": {
+          "column": "Energy"
+        },
+        "sleep": {
+          "column": "Sleep"
+        },
+        "notes": {
+          "column": "Notes",
+          "default": ""
+        }
+      }
+    },
+    "cardio_logged": {
+      "file": "cardio.csv",
+      "date_column": "Date",
+      "fields": {
+        "modality": {
+          "column": "Activity"
+        },
+        "minutes": {
+          "column": "Minutes"
+        },
+        "intensity": {
+          "column": "Intensity"
+        },
+        "est_kcal": {
+          "column": "Calories"
+        }
+      }
+    },
+    "nutrition_targets_set": {
+      "file": "nutrition_targets.csv",
+      "date_column": "Effective",
+      "fields": {
+        "day_type": {
+          "column": "Day Type"
+        },
+        "protein_g": {
+          "column": "Protein"
+        },
+        "carb_g": {
+          "column": "Carbs"
+        },
+        "fat_g": {
+          "column": "Fat"
+        },
+        "note": {
+          "column": "Note",
+          "default": ""
+        }
+      }
+    }
+  }
+}
