@@ -11,6 +11,15 @@ python -m pytest                                    # run the tests
 ```
 For the Mr. J commands (`checkin`, `chat`), set an Anthropic API key: `export ANTHROPIC_API_KEY=...`.
 
+## Dashboard (local)
+```bash
+coach dashboard            # opens http://127.0.0.1:8765 — reads the databases under data/
+coach fetch-assets         # optional, once: save the Higgsfield-made graphics for offline use
+```
+Clients, weight chart, history review, approval queue (approve / modify / reject), and a saved conversation
+with Mr. J per client: reply to him, ask questions, or have him draft the weekly check-in and copy it.
+It runs only on your computer; the only thing sent out is Mr. J's messages to Claude.
+
 ## Try it with the synthetic sample client
 ```bash
 coach onboard samples/mid_cut_client/onboarding.json --report data/report.json

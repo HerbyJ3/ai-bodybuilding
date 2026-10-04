@@ -75,7 +75,7 @@ Defaults (confirm before M0, **[DECIDE]**):
 - **Storage:** SQLite for development (events as rows with a JSON payload), with a Postgres-ready design
 - **Tests:** pytest
 - **LLM provider:** **Claude** (Anthropic API), decided 2026-10-03. Keep it behind a single `llm/client.py` interface so it can be swapped
-- **Interface v1:** CLI (Typer). A web UI comes later
+- **Interface v1:** CLI (Typer), plus a **local coach dashboard** (FastAPI + Jinja, `coach dashboard`, bound to 127.0.0.1): clients, weight chart, history review, approval queue, and a saved coach ↔ Mr. J conversation per client (chat history is stored in the client's own SQLite file, table `chat_messages`; Mr. J is told he is talking to the coach). Graphics were made with Higgsfield; the app is not hosted there, so client data never leaves the machine except Mr. J's calls to Claude
 
 ---
 

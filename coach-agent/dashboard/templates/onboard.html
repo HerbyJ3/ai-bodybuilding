@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Add client · Mr. J{% endblock %}
+{% block main %}
+<section class="section narrow">
+  <h1>Add a client</h1>
+  <p class="muted">Upload the client's files together: <code>onboarding.json</code> (required), <code>mapping.json</code>, and the CSVs it points to (weigh-ins, macro targets, optional cardio, check-ins…). They're saved under <code>data/</code> on this computer.</p>
+  <p class="muted small">Minimum data: 2+ weeks of weigh-ins and current macro targets. Everything else is optional.</p>
+  {% if error %}<div class="banner error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" enctype="multipart/form-data" class="card">
+    <label>Files <input type="file" name="files" multiple accept=".csv,.json" required></label>
+    <button data-busy="Importing…">Import</button>
+  </form>
+  {% if report %}
+  <section class="card">
+    <h2>Imported {{ cid }}</h2>
+    <p>{{ report.events_written }} records written.</p>
+    <h3>Minimum data</h3>
+    <ul>
+      <li>Weigh-ins: {{ "OK" if report.minimum_data.weigh_ins.ok else "missing" }} ({{ report.minimum_data.weigh_ins.weeks }} weeks)</li>
+      <li>Macro targets: {{ "OK" if report.minimum_data.macro_targets.ok else "missing" }}</li>
+    </ul>
+    {% if report.optional_data_missing %}<p class="small muted">Optional, not provided: {{ report.optional_data_missing|join(", ") }}</p>{% endif %}
+    {% if report.warnings %}<h3>Warnings</h3><ul>{% for w in report.warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}
+    <a class="btn" href="/client/{{ cid }}">Open client</a>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

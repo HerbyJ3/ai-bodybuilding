@@ -35,8 +35,20 @@ class CoachSession:
                                 lambda name, args: run_tool(name, args, self.state, self.cfg, self.top_k))
 
 
+COACH_AUDIENCE = """
+
+## Who you are talking to in this session
+The person messaging you is this client's **coach**, not the client. Talk about the client in the
+third person, help the coach understand the data and decide, and draft client-facing messages when
+asked (written to the client, in your voice). The coach approves changes in the dashboard; you never
+approve anything, and you still present only approved changes as decided."""
+
+
 def open_session(store: EventStore, cfg: Config, client_id: str, as_of: date, llm: LLMClient,
-                 settings: dict[str, Any] | None = None) -> CoachSession:
+                 settings: dict[str, Any] | None = None, audience: str = "client",
+                 history: list[dict[str, str]] | None = None) -> CoachSession:
+    """`history`: earlier turns as [{"role": "user"|"assistant", "content": text}], so a saved
+    conversation can continue. `audience="coach"` frames Mr. J as talking to the coach."""
     s = settings or llm_settings()
     if not store.has_consent(client_id):
         raise PermissionError(f"no consent recorded for {client_id}")
@@ -48,4 +60,9 @@ def open_session(store: EventStore, cfg: Config, client_id: str, as_of: date, ll
     knowledge = retrieval.retrieve(query, s["knowledge_top_k"])
     system = prompt_builder.build_system_prompt(s["coach_name"], state, approved,
                                                 review["findings"], knowledge)
-    return CoachSession(llm, system, state, cfg, s["knowledge_top_k"])
+    if audience == "coach":
+        system += COACH_AUDIENCE
+    elif audience != "client":
+        raise ValueError(f"unknown audience {audience!r}")
+    messages = [{"role": m["role"], "content": m["content"]} for m in (history or [])]
+    return CoachSession(llm, system, state, cfg, s["knowledge_top_k"], messages)

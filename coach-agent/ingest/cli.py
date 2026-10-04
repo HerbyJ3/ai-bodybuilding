@@ -208,6 +208,31 @@ def chat_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-DD,
         typer.echo(f"\nMr. J> {session.ask(text).text}\n")
 
 
+@app.command("dashboard")
+def dashboard_cmd(data_dir: Path = typer.Option(Path("data"), help="folder holding client databases"),
+                  port: int = 8765, open_browser: bool = typer.Option(True, "--open/--no-open")) -> None:
+    """Open the local coach dashboard in your browser (runs on this computer only)."""
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from dashboard.app import create_app
+    url = f"http://127.0.0.1:{port}"
+    typer.echo(f"Mr. J dashboard: {url}  (Ctrl-C to stop)")
+    if open_browser:
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    uvicorn.run(create_app(data_dir), host="127.0.0.1", port=port, log_level="warning")
+
+
+@app.command("fetch-assets")
+def fetch_assets_cmd() -> None:
+    """Save the dashboard graphics (made with Higgsfield) locally for offline use."""
+    from dashboard.app import fetch_assets
+    for path in fetch_assets():
+        typer.echo(f"saved {path}")
+
+
 @app.command("eval")
 def eval_cmd(llm: bool = typer.Option(False, "--llm", help="also run Mr. J scenarios (Claude API, costs money)"),
              only: str = typer.Option(None, help="run one scenario id"),

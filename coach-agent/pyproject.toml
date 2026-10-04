@@ -12,20 +12,25 @@ dependencies = [
     "typer>=0.9",
     "anthropic>=1.0",
     "pyyaml>=6",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "httpx>=0.27"]
 
 [project.scripts]
 coach = "ingest.cli:app"
 
 [tool.setuptools.packages.find]
-include = ["config*", "schemas*", "store*", "engine*", "ingest*", "approvals*", "llm*", "evals*"]
+include = ["config*", "schemas*", "store*", "engine*", "ingest*", "approvals*", "llm*", "evals*", "dashboard*"]
 
 [tool.setuptools.package-data]
 config = ["*.json"]
 evals = ["*.yaml"]
+dashboard = ["templates/*.html", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
