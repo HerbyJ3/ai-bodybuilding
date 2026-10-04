@@ -14,3 +14,6 @@ AI hypertrophy & physique coach agent. **Read `docs/BUILD_SPEC.md` before any wo
 - Build milestones in order (BUILD_SPEC §10). Tests pass before moving on.
 - Every set-progression matrix cell and every nutrition rule has a unit test.
 - Synthetic test data only.
+
+## Team
+Sub-agents are defined in `../.claude/agents/`; when-to-use rules are in the repo-root `CLAUDE.md`. Every agent starts from `docs/TEAM_BRIEF.md` — keep its "Current state" section up to date after each merged PR.
