@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="hero" style="--hero: url('{{ asset('splash') }}')">
+  <div class="hero-text">
+    <h1>Coaching dashboard</h1>
+    <p>Review each client's data, approve changes, and talk with Mr. J. Everything stays on this computer.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>Clients</h2>
+    <form method="get" class="inline"><label>As of <input type="date" name="as_of" value="{{ as_of }}"></label><button class="ghost">Update</button></form>
+  </div>
+  {% if not cards %}
+    <div class="empty card">
+      <p>No clients yet.</p>
+      <a class="btn" href="/onboard">Add your first client</a>
+    </div>
+  {% endif %}
+  <div class="cards">
+  {% for c in cards %}
+    {% set st = c.state %}
+    <a class="card client-card" href="/client/{{ c.id }}?as_of={{ as_of }}">
+      <div class="row space"><h3>{{ c.id }}</h3>
+        {% if c.pending %}<span class="pill attention">{{ c.pending }} to review</span>{% endif %}</div>
+      <p class="muted">{% if st.phase %}{{ st.phase.phase|capitalize }} · week {{ st.phase.week }}{% else %}No phase set{% endif %}</p>
+      <dl class="stats">
+        <div><dt>Weekly avg</dt><dd>{{ "%.1f"|format(st.weight.latest_avg_lb) if st.weight.latest_avg_lb else "–" }} lb</dd></div>
+        <div><dt>Rate</dt><dd>{{ "%+.2f"|format(st.weight.pct_bw_per_week) ~ "%/wk" if st.weight.pct_bw_per_week is not none else "–" }}</dd></div>
+        <div><dt>Limitations</dt><dd>{{ c.limitations }}</dd></div>
+      </dl>
+    </a>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

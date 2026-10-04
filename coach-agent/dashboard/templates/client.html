@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ cid }} · Mr. J{% endblock %}
+{% block main %}
+{% set st = state %}
+<section class="client-head">
+  <div>
+    <p class="muted"><a href="/?as_of={{ as_of }}">Clients</a> /</p>
+    <h1>{{ cid }}</h1>
+    <p class="muted">{% if st.phase %}{{ st.phase.phase|capitalize }} · week {{ st.phase.week }} of {{ st.phase.planned_weeks }} · target {{ st.phase.target_rate_pct_bw }}% BW/week{% else %}No phase set{% endif %}</p>
+  </div>
+  <form method="get" class="inline"><label>As of <input type="date" name="as_of" value="{{ as_of }}"></label><button class="ghost">Update</button></form>
+</section>
+{% if error %}<div class="banner error" role="alert">{{ error }}</div>{% endif %}
+
+<div class="layout">
+  <div class="col">
+    <section class="card">
+      <h2>Bodyweight</h2>
+      <p class="muted small">Daily readings and 7-day average, last 120 days. Vertical lines mark macro target changes (hover a line for details).</p>
+      {% if chart %}
+      <div class="legend"><span><i class="key s1"></i>7-day average</span><span><i class="dot s2"></i>Daily reading</span></div>
+      <div class="chart-wrap">{{ chart|safe }}<div class="tooltip" hidden></div></div>
+      <script type="application/json" id="weight-data">{{ series|tojson }}</script>
+      <details><summary>Table view</summary>
+        <table><thead><tr><th>Date</th><th>Reading (lb)</th><th>7-day avg (lb)</th></tr></thead><tbody>
+        {% for p in series|reverse %}<tr><td>{{ p.date }}</td><td>{{ p.weight }}</td><td>{{ p.avg if p.avg is not none else "–" }}</td></tr>{% endfor %}
+        </tbody></table></details>
+      {% else %}<p class="muted">Not enough weigh-ins to chart yet.</p>{% endif %}
+      <dl class="stats">
+        <div><dt>Weekly avg</dt><dd>{{ "%.1f"|format(st.weight.latest_avg_lb) if st.weight.latest_avg_lb else "–" }} lb</dd></div>
+        <div><dt>Rate</dt><dd>{{ "%+.2f"|format(st.weight.pct_bw_per_week) ~ "%/wk" if st.weight.pct_bw_per_week is not none else "–" }}</dd></div>
+        <div><dt>Maintenance</dt><dd>{{ "%d kcal"|format(st.maintenance.kcal) if st.maintenance else "needs food logs" }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Current macro targets</h2>
+      {% if st.current_macros %}
+      <table><thead><tr><th>Day type</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr></thead><tbody>
+      {% for dt, m in st.current_macros.items() %}<tr><td>{{ dt|replace("_", " ") }}</td><td>{{ m.protein_g|round|int }} g</td><td>{{ m.carb_g|round|int }} g</td><td>{{ m.fat_g|round|int }} g</td></tr>{% endfor %}
+      </tbody></table>
+      {% else %}<p class="banner warn">No macro targets on record. They're required for calorie adjustments.</p>{% endif %}
+    </section>
+
+    {% if st.limitations %}
+    <section class="card">
+      <h2>Limitations</h2>
+      {% for l in st.limitations %}
+        <h3>{{ l.area }}</h3>
+        <ul>{% for r in l.restrictions %}<li>{{ r }}</li>{% endfor %}</ul>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>History review</h2>
+      <ul class="findings">
+      {% for f in review.findings %}<li><span class="tag">{{ f.area }}</span>{{ f.finding }}</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card" id="queue">
+      <div class="row space"><h2>Approval queue</h2>
+        <form method="post" action="/client/{{ cid }}/queue/refresh"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="ghost">Check for suggestions</button></form></div>
+      {% if not pending %}<p class="muted">Nothing waiting for you.</p>{% endif %}
+      {% for item in pending %}{% set p = item.proposal %}
+        <article class="proposal">
+          <div class="row space"><strong>{{ p.action|replace("_", " ")|capitalize }}</strong><span class="pill">{{ p.confidence }} confidence</span></div>
+          <p>{{ p.rationale_short }}</p>
+          {% if p.proposed_value and p.proposed_value.macros_by_day_type %}
+          <table><thead><tr><th>Day type</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr></thead><tbody>
+          {% for dt, m in p.proposed_value.macros_by_day_type.items() %}<tr><td>{{ dt|replace("_", " ") }}</td><td>{{ m.protein_g|round|int }} g</td><td>{{ m.carb_g|round|int }} g</td><td>{{ m.fat_g|round|int }} g</td></tr>{% endfor %}
+          </tbody></table>{% endif %}
+          {% if p.data_quality_flags %}<p class="small muted">Flags: {{ p.data_quality_flags|join(", ") }}</p>{% endif %}
+          <details><summary>Details</summary><pre>{{ {"inputs": p.inputs_used, "proposed": p.proposed_value}|pretty }}</pre></details>
+          <form method="post" class="decide" action="">
+            <input type="hidden" name="as_of" value="{{ as_of }}">
+            <label class="small">Note <input name="note" placeholder="Required to reject or modify"></label>
+            <details><summary class="small">Modify value</summary><textarea name="value" rows="6">{{ p.proposed_value|pretty }}</textarea></details>
+            <div class="row">
+              <button formaction="/client/{{ cid }}/proposal/{{ p.proposal_id }}/approve">Approve</button>
+              <button class="ghost" formaction="/client/{{ cid }}/proposal/{{ p.proposal_id }}/modify">Save modified</button>
+              <button class="ghost danger" formaction="/client/{{ cid }}/proposal/{{ p.proposal_id }}/reject">Reject</button>
+            </div>
+          </form>
+        </article>
+      {% endfor %}
+      {% if info %}<details><summary class="small">On hold ({{ info|length }})</summary>
+        <ul class="small">{% for i in info %}<li>{{ i.proposal.rationale_short }}</li>{% endfor %}</ul></details>{% endif %}
+      {% if decided %}<details><summary class="small">Recent decisions</summary>
+        <ul class="small">{% for i in decided %}<li><strong>{{ i.status }}</strong>: {{ i.proposal.rationale_short }}</li>{% endfor %}</ul></details>{% endif %}
+    </section>
+
+    <section class="card chat" id="chat">
+      <div class="row space"><h2>Mr. J</h2>
+        <form method="post" action="/client/{{ cid }}/checkin"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="ghost" data-busy="Drafting…">Draft check-in</button></form></div>
+      <p class="muted small">You're talking to Mr. J as the coach. He sees this client's data and only treats approved changes as decided.</p>
+      <div class="messages">
+        {% if not chat %}<p class="muted">Ask anything about this client, or draft this week's check-in.</p>{% endif %}
+        {% for m in chat %}
+          <div class="msg {{ m.role }}{% if m.kind == 'draft' %} draft{% endif %}">
+            {% if m.kind == 'draft' %}<div class="row space small"><span class="tag">Check-in draft</span><button type="button" class="ghost copy">Copy</button></div>{% endif %}
+            <div class="msg-body">{{ m.content }}</div>
+          </div>
+        {% endfor %}
+      </div>
+      <form method="post" action="/client/{{ cid }}/chat" class="composer">
+        <input type="hidden" name="as_of" value="{{ as_of }}">
+        <textarea name="message" rows="3" placeholder="Reply to Mr. J… (e.g. “Make the draft shorter” or “Why not more cardio?”)" required></textarea>
+        <button data-busy="Mr. J is thinking…">Send</button>
+      </form>
+      {% if chat %}<form method="post" action="/client/{{ cid }}/chat/clear"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="link small">Clear conversation</button></form>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/chart.js"></script>{% endblock %}
