@@ -131,3 +131,16 @@ svg.chart .hit { fill: transparent; cursor: crosshair; }
 .daylog { margin: 4px 0 0; padding-left: 18px; }
 .attach input { border: 0; padding: 4px 0; }
 .macro-form > button, .checkin-form > button { justify-self: start; width: auto; }
+
+.field { position: relative; display: block; margin-top: 2px; }
+.field select, .field input { width: 100%; padding-right: 34px; }
+.field select { appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 44px) 55%, calc(100% - 39px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 56px; }
+.field .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; padding: 0;
+  border-radius: 50%; background: transparent; color: var(--danger); font-size: 18px; line-height: 22px; font-weight: 700; }
+.field .clear:hover, .field .clear:focus-visible { background: var(--error-bg); }
+.checkin-form { display: grid; gap: 10px; }
+.check { gap: 6px; } .check input { width: auto; }
+
+[hidden] { display: none !important; }

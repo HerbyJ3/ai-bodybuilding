@@ -18,8 +18,9 @@ coach fetch-assets         # optional, once: save the Higgsfield-made graphics f
 ```
 Clients, weight chart, history review, approval queue (approve / modify / reject), and a saved conversation
 with Mr. J per client: reply to him, ask questions, or have him draft the weekly check-in and copy it.
-Also on each client page: a **check-in** form (hunger, energy, training feel, sleep hours, any date), a daily
-**"Macros hit?"** log (yes, or how many grams over/under per macro), and file uploads in the chat so you can
+Also on each client page: a **check-in** form for the date at the top of the page (notes, hunger, energy, training feel, sleep hours; each with
+a red × to clear it; saving again updates that date), a **Daily Target** log (on target yes/no, grams over/under per
+macro, and a "Non-training day" box that compares the day with the low-carb targets), and file uploads in the chat so you can
 send Mr. J a training plan or results (PDF, .docx, .txt).
 It runs only on your computer; the only thing sent out is Mr. J's messages to Claude (including any attached file).
 
