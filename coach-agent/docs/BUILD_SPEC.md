@@ -205,7 +205,7 @@ All rules are **pure functions**: `(ClientState, config) → list[Proposal]`. No
 - **Weekly adjustment:**
   1. If adherence is below threshold → propose an adherence intervention, **not** a calorie change.
   2. Require ≥ 2 weeks of trend data. Never adjust on a single weigh-in.
-  2b. No check-in within `adherence.checkin_max_age_days` → **hold** (adherence unknown). *(Owner decision 2026-10-04.)*
+  2b. **Minimum data = weigh-ins (step 2) + macro targets.** No macro targets → hold ("set targets"). Everything else is optional: no check-in within `adherence.checkin_max_age_days` → still adjust, flagged `no_recent_checkin`, confidence capped at medium. A recent check-in showing low adherence still triggers step 1. *(Owner decision 2026-10-04: many clients won't have check-ins, food logs or set logs.)*
   3. Compute the gap between the actual and target rate, then convert: `kcal/day = (lb/week gap × 3500) / 7`. **Cap each adjustment at `calorie_step_cap.max_kcal_change_per_step`** (100 kcal/day ≈ 25 g carbs ≈ 0.2 lb/week); larger gaps close over several check-ins. *(Owner decision 2026-10-04.)*
   3b. **Cut, too slow:** try the cardio lever first (§7.4), then calories.
   4. **Cut:** take from fat down to its floor, then from carbs. Never reduce protein.

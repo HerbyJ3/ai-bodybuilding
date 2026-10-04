@@ -128,3 +128,25 @@ def test_onboarding_warns_when_day_type_looks_wrong(cfg):
     assert any("below the book minimum for 'moderate'" in w for w in rep["warnings"])
     nut = [p for p in rep["proposals"] if p["rule_id"].startswith("nutrition")]
     assert "carbs_below_day_type_minimum:moderate" in nut[0]["flags"]
+
+
+def test_onboarding_reports_minimum_and_optional_data(cfg):
+    rep = onboard(EventStore(), _config(), cfg, base_dir=SAMPLE).data
+    assert rep["minimum_data"]["weigh_ins"]["ok"] and rep["minimum_data"]["macro_targets"]["ok"]
+    assert "soreness ratings" in rep["optional_data_missing"]
+    assert "weigh-ins" not in rep["optional_data_missing"]
+
+
+def test_onboarding_warns_when_minimum_missing(cfg, tmp_path):
+    import shutil
+    for f in SAMPLE.iterdir():
+        if f.is_file():
+            shutil.copy(f, tmp_path / f.name)
+    m = json.loads((tmp_path / "mapping.json").read_text())
+    del m["streams"]["nutrition_targets_set"]
+    (tmp_path / "mapping.json").write_text(json.dumps(m))
+    rep = onboard(EventStore(), _config(nutrition_targets=None), cfg, base_dir=tmp_path).data
+    assert not rep["minimum_data"]["macro_targets"]["ok"]
+    assert any("no macro targets" in w for w in rep["warnings"])
+    nut = [p for p in rep["proposals"] if p["rule_id"].startswith("nutrition.weekly")]
+    assert nut[0]["action"] == "hold" and "no_current_targets" in nut[0]["flags"]

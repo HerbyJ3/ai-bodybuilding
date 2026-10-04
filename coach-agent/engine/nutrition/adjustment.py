@@ -51,20 +51,20 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
     checkin = state.latest_checkin
     threshold = cfg.setting("adherence_threshold_pct")
     max_age = cfg.setting("adherence.checkin_max_age_days")
-    if checkin is None or (as_of - checkin["date"]).days > max_age:
-        last = checkin["date"].isoformat() if checkin else "never"
-        return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "hold",
-                             rationale=f"no check-in in the last {max_age} days (last: {last}): "
-                                       "adherence unknown, so no calorie change",
-                             inputs_used={"last_checkin": last},
-                             config_keys=["engine-settings:adherence.checkin_max_age_days"],
-                             data_quality_flags=["no_recent_checkin"])]
-    if checkin["adherence_pct"] < threshold:
+    # Minimum data: weigh-ins (trend check below) + macro targets. Check-ins are optional:
+    # without a recent one we proceed, and scoring caps confidence at medium.
+    recent_checkin = checkin is not None and (as_of - checkin["date"]).days <= max_age
+    optional_flags = [] if recent_checkin else ["no_recent_checkin"]
+    if recent_checkin and checkin["adherence_pct"] < threshold:
         return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "adherence_intervention",
                              rationale=f"adherence {checkin['adherence_pct']:.0f}% < {threshold}%: "
                                        "fix adherence before changing calories",
                              inputs_used={"adherence_pct": checkin["adherence_pct"]},
                              config_keys=["engine-settings:adherence_threshold_pct"])]
+    if not state.current_macros:
+        return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "hold",
+                             rationale="no macro targets on record: set them to enable calorie adjustments",
+                             config_keys=[], data_quality_flags=["no_current_targets"])]
 
     t = state.weight
     min_weeks = cfg.nutrition("tracking.min_weeks_before_trend")
@@ -78,7 +78,7 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
     target = ph.target_rate_pct_bw
     inputs = {"phase": ph.phase, "pct_bw_per_week": round(rate, 3), "target_rate_pct_bw": target,
               "bodyweight_lb": round(bw, 1), "trend_weeks": t.trend_weeks,
-              "adherence_pct": checkin["adherence_pct"] if checkin else None}
+              "adherence_pct": checkin["adherence_pct"] if recent_checkin else None}
 
     if ph.phase == "maintenance":
         band = cfg.nutrition("phases.maintenance.stable_band_pct_bw")
@@ -106,7 +106,7 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
     kcal = max(-cap, min(cap, full))
     inputs["full_gap_kcal_per_day"] = full
     keys = keys + ["engine-settings:calorie_step_cap"]
-    flags: list[str] = ["step_capped"] if kcal != full else []
+    flags: list[str] = (["step_capped"] if kcal != full else []) + optional_flags
     flags += carbs_below_minimum(state, bw, cfg)
 
     # In a cut, cheaper reversible cardio levers come before calories.
@@ -127,16 +127,13 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
 
     action = "increase_calories" if kcal > 0 else "decrease_calories"
     proposed: dict = {"kcal_per_day_change": kcal}
-    if state.current_macros:
-        new = {}
-        for day_type, m in state.current_macros.items():
-            r = macro_rules.apply_change(m, kcal, bw, day_type, cfg)
-            new[day_type] = r.macros.model_dump()
-            flags += r.flags
-        proposed["macros_by_day_type"] = new
-        keys += ["phases.cut.macro_cut_order", "phases.gain.macro_add_order", "fat.minimum"]
-    else:
-        flags.append("no_current_targets")
+    new = {}
+    for day_type, m in state.current_macros.items():
+        r = macro_rules.apply_change(m, kcal, bw, day_type, cfg)
+        new[day_type] = r.macros.model_dump()
+        flags += r.flags
+    proposed["macros_by_day_type"] = new
+    keys += ["phases.cut.macro_cut_order", "phases.gain.macro_add_order", "fat.minimum"]
     return [new_proposal(
         cid, as_of, RULE_ID, f"calories.{ph.phase}", action,
         rationale=f"{ph.phase}: {rate:+.2f}%/wk vs target {target}%/wk -> {kcal:+d} kcal/day"

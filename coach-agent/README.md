@@ -32,6 +32,8 @@ coach eval --llm    # + Mr. J guardrails (steroids, crash diets, pain, quotes...
 Data lives in `data/coach.db` (gitignored). Never commit client data.
 
 ## A real client
+**Minimum data:** 2+ weeks of weigh-ins and the client's current macro targets. Everything else (check-ins, food logs, workout sets, soreness, cardio) is optional; the more there is, the more the engine can do and the higher its confidence.
+
 1. Export their history to CSV (weigh-ins, food, sets, check-ins, optional cardio/ratings).
 2. Copy `samples/mid_cut_client/mapping.json` and match your column names.
 3. Copy `samples/mid_cut_client/onboarding.json`; fill in client id, date, consent, phase/week, meso week, last deload, optional past mesos/phases.

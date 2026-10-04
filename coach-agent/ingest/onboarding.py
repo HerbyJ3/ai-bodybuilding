@@ -247,6 +247,14 @@ def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path
     for f in state.data_quality:
         by_code[f.code] += 1
     nut = cold_start.nutrition_status(state, cfg)
+    minimum = {"weigh_ins": {"ok": nut.ready, "weeks": nut.have_weeks, "needed": nut.need_weeks},
+               "macro_targets": {"ok": bool(state.current_macros)}}
+    if not minimum["macro_targets"]["ok"]:
+        warnings.append("minimum data missing: no macro targets (add nutrition_targets or a targets CSV)")
+    if not nut.ready:
+        warnings.append(f"minimum data missing: {nut.have_weeks}/{nut.need_weeks} weeks of weigh-ins")
+    optional_missing = sorted(label for t, label in history_review.COLLECTED_STREAMS.items()
+                              if t != "weigh_in" and not any(e.type == t for e in all_events))
     train = cold_start.training_status(state, cfg)
     return OnboardingReport({
         "client_id": cid,
@@ -263,6 +271,8 @@ def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path
             "gaps": [f for f in flags if f["code"] == "stream_gap"],
             "flags": flags,
         },
+        "minimum_data": minimum,
+        "optional_data_missing": optional_missing,
         "cold_start": {
             "nutrition": {"ready": nut.ready, "weeks_of_weigh_ins": nut.have_weeks,
                           "needed": nut.need_weeks},

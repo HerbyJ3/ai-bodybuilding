@@ -131,4 +131,4 @@ def test_cli_eval_engine_only():
     from typer.testing import CliRunner
     from ingest.cli import app
     out = CliRunner().invoke(app, ["eval"])
-    assert out.exit_code == 0 and "14/14 passed" in out.output
+    assert out.exit_code == 0 and "15/15 passed" in out.output

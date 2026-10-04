@@ -104,7 +104,7 @@
       "checkin_max_age_days": 14
     },
     "_provisional": true,
-    "_source": "owner decision 2026-10-04: no recent check-in -> hold calories. The 14-day 'recent' window is a placeholder"
+    "_source": "owner decision 2026-10-04: check-ins are optional; without a recent one, adjustments proceed at most medium confidence. The 14-day 'recent' window is a placeholder"
   },
   "cardio_lever": {
     "value": {

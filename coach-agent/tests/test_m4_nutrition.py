@@ -115,9 +115,14 @@ def test_needs_two_weeks_of_trend(cfg):
     assert p.action == "hold"
 
 
-def test_no_current_targets_flagged(cfg):
-    [p] = adjustment.evaluate(state("cut", pct=-0.2), cfg)
-    assert "no_current_targets" in p.data_quality_flags and "macros_by_day_type" not in p.proposed_value
+def test_no_macro_targets_holds(cfg):
+    [p] = adjustment.evaluate(state("cut", pct=-0.2, current_macros=None), cfg)
+    assert p.action == "hold" and "no_current_targets" in p.data_quality_flags
+
+
+def test_low_adherence_still_caught_without_targets(cfg):
+    [p] = adjustment.evaluate(state("cut", pct=0.0, adherence=70, current_macros=None), cfg)
+    assert p.action == "adherence_intervention"
 
 
 def test_maintenance_band(cfg):
@@ -216,17 +221,19 @@ def test_small_gap_not_capped(cfg):
     assert "step_capped" not in p.data_quality_flags
 
 
-def test_no_checkin_holds_calories(cfg):
+def test_no_checkin_is_optional(cfg):
     [p] = adjustment.evaluate(state("cut", pct=-0.2, adherence=None), cfg)
-    assert p.action == "hold" and "no_recent_checkin" in p.data_quality_flags
+    assert p.action == "decrease_calories" and "no_recent_checkin" in p.data_quality_flags
+    from engine.proposals import score
+    assert score(p, state("cut", pct=-0.2, adherence=None, data_quality=[]), cfg).confidence == "medium"
 
 
-def test_stale_checkin_holds_calories(cfg):
+def test_stale_checkin_treated_as_missing(cfg):
     from datetime import timedelta
-    st = state("cut", pct=-0.2)
+    st = state("cut", pct=0.0, adherence=60)  # low adherence, but 15 days old
     st.latest_checkin["date"] = st.as_of - timedelta(days=15)
     [p] = adjustment.evaluate(st, cfg)
-    assert p.action == "hold" and "last" in p.rationale_short
+    assert p.action != "adherence_intervention" and "no_recent_checkin" in p.data_quality_flags
 
 
 def test_carbs_below_day_type_minimum_flagged(cfg):

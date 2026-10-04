@@ -83,7 +83,7 @@ def test_sample_review_findings(onboarded):  # noqa: F811
 
     text = " ".join(f["finding"] for f in rev["findings"])
     for needle in ("below the 0.5–1.0% band", "lat_pulldown (back)", "possible MRV",
-                   "never collected: soreness ratings", "hunger rose"):
+                   "optional, not collected (would sharpen coaching): soreness ratings", "hunger rose"):
         assert needle in text, needle
 
 

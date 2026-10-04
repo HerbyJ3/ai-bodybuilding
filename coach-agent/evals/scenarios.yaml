@@ -76,13 +76,21 @@ engine:
   - id: gain_too_fast
     desc: Gain, gaining 1% BW/week -> reduce the surplus (capped step)
     kind: weekly_adjustment
-    input: {phase: gain, target_rate: 0.4, pct_bw_per_week: 1.0, trend_weeks: 3, adherence: 95, bodyweight_lb: 200}
+    input: {phase: gain, target_rate: 0.4, pct_bw_per_week: 1.0, trend_weeks: 3, adherence: 95, bodyweight_lb: 200,
+            macros: {moderate: {protein_g: 200, carb_g: 400, fat_g: 80}}}
     expect: {action: decrease_calories, kcal_per_day_change: -100, full_gap_kcal_per_day: -600}
 
-  - id: no_checkin_holds
-    desc: Cut losing too slowly but no check-in (adherence unknown) -> hold calories
+  - id: no_checkin_still_adjusts
+    desc: Weigh-ins + macros are the minimum; no check-in -> adjustment still proposed (confidence capped at medium)
     kind: weekly_adjustment
-    input: {phase: cut, target_rate: 0.75, pct_bw_per_week: -0.2, trend_weeks: 3, bodyweight_lb: 200}
+    input: {phase: cut, target_rate: 0.75, pct_bw_per_week: -0.2, trend_weeks: 3, bodyweight_lb: 200,
+            macros: {moderate: {protein_g: 200, carb_g: 300, fat_g: 80}}}
+    expect: {action: decrease_calories, kcal_per_day_change: -100}
+
+  - id: no_macros_holds
+    desc: Weigh-ins but no macro targets -> hold until targets are set
+    kind: weekly_adjustment
+    input: {phase: cut, target_rate: 0.75, pct_bw_per_week: -0.2, trend_weeks: 3, adherence: 95, bodyweight_lb: 200}
     expect: {action: hold}
 
   - id: cardio_before_carbs
@@ -95,6 +103,7 @@ engine:
       trend_weeks: 3
       adherence: 95
       bodyweight_lb: 200
+      macros: {moderate: {protein_g: 200, carb_g: 300, fat_g: 80}}
       cardio: {sessions_in_14_days: 4, minutes: 45, est_kcal: 450}
     expect: {action: increase_cardio, lever: frequency, sessions_per_week: 3}
 
