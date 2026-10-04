@@ -65,11 +65,16 @@ def _state(i: dict[str, Any]) -> ClientState:
             weekly=[WeeklyWeight(window_end=AS_OF - timedelta(days=7 * k), avg_lb=bw - change * k, n=3)
                     for k in range(n)],
             trend_weeks=n, avg_weekly_change_lb=change, pct_bw_per_week=pct, latest_avg_lb=bw)
-    if "adherence" in i or "hunger" in i:
+    if "adherence" in i or "hunger" in i or i.get("kind_hint") == "checkin":
         st.latest_checkin = {"adherence_pct": i.get("adherence", 95), "hunger": i.get("hunger", 3),
                              "energy": 3, "sleep": 3, "notes": "", "date": AS_OF}
     if "macros" in i:
         st.current_macros = {k: MacroTargets(**v) for k, v in i["macros"].items()}
+    if "cardio" in i:
+        c = i["cardio"]
+        st.cardio_recent = [{"date": AS_OF - timedelta(days=2 * k), "minutes": c["minutes"], "intensity": "mod",
+                             "modality": c.get("modality", "incline walk"), "est_kcal": c.get("est_kcal")}
+                            for k in range(c["sessions_in_14_days"])]
     if "performance" in i and "soreness" not in i:
         st.muscle_weeks = {"quads": [MuscleWeek(meso_id="m", meso_week=3, week_start=AS_OF - timedelta(days=6),
                                                 performance=i["performance"])]}
@@ -104,7 +109,9 @@ def run_engine_scenario(sc: dict[str, Any], cfg: Config) -> Result:
         [p] = adjustment.evaluate(_state(i), cfg)
         pv = p.proposed_value if isinstance(p.proposed_value, dict) else {}
         got = {"action": p.action, "kcal_per_day_change": pv.get("kcal_per_day_change"),
-               "macros": pv.get("macros_by_day_type")}
+               "full_gap_kcal_per_day": p.inputs_used.get("full_gap_kcal_per_day"),
+               "macros": pv.get("macros_by_day_type"), "lever": pv.get("lever"),
+               "sessions_per_week": pv.get("sessions_per_week")}
     elif kind == "phase_transition":
         props = phases.evaluate(_state(i), cfg)
         got = ({"action": props[0].action, "phase": props[0].proposed_value["phase"]}

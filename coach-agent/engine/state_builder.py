@@ -127,8 +127,9 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
     if (c := latest("consent_recorded")):
         st.consent = c.payload.granted
     for e in by_type["profile_updated"]:
-        if e.payload.training_age:
-            st.training_age = e.payload.training_age
+        for f in ("training_age", "cardio_max_sessions_per_week", "cardio_max_minutes_per_session"):
+            if getattr(e.payload, f) is not None:
+                setattr(st, f, getattr(e.payload, f))
     if (o := latest("onboarding_completed")):
         st.onboarded, st.onboarding_date = True, o.payload.as_of
 
@@ -189,5 +190,10 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
     for e in by_type["cardio_logged"]:
         cardio[window_index(as_of, e.payload.date)] += e.payload.minutes
     st.cardio_minutes_by_week = [cardio[k] for k in range(4)]
+    lookback = cfg.setting("cardio_lever.lookback_days")
+    st.cardio_recent = [{"date": e.payload.date, "minutes": e.payload.minutes,
+                         "intensity": e.payload.intensity, "modality": e.payload.modality,
+                         "est_kcal": e.payload.est_kcal}
+                        for e in by_type["cardio_logged"] if 0 <= (as_of - e.payload.date).days < lookback]
     st.data_quality = dq.flags
     return st

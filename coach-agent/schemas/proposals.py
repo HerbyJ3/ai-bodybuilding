@@ -14,10 +14,10 @@ PROPOSAL_NAMESPACE = uuid.UUID("0b7d0d4e-6b5c-4b8e-9c3f-6a2a1e9b4d21")
 Action = Literal[
     "add_sets", "hold", "recovery", "reduce_sets", "deload",
     "decrease_calories", "increase_calories", "adherence_intervention",
-    "transition_phase", "set_macros", "flag",
+    "transition_phase", "set_macros", "flag", "increase_cardio",
 ]
 # Actions a low-confidence proposal may never carry (§7.5).
-ESCALATING_ACTIONS = {"add_sets", "decrease_calories"}
+ESCALATING_ACTIONS = {"add_sets", "decrease_calories", "increase_cardio"}
 
 
 class Proposal(BaseModel):

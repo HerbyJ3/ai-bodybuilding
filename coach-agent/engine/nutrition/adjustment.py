@@ -1,7 +1,10 @@
 """Weekly calorie adjustment (BUILD_SPEC §7.2)."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 from config.loader import Config
+from engine import cardio_lever
 from engine.nutrition import macros as macro_rules
 from schemas.proposals import Proposal, new_proposal
 from schemas.state import ClientState
@@ -13,6 +16,16 @@ def kcal_per_day_for_rate_gap(gap_pct_bw: float, bw_lb: float, cfg: Config) -> f
     """kcal/day = (lb/week gap × kcal_per_lb) / 7"""
     lb_per_week = gap_pct_bw / 100 * bw_lb
     return lb_per_week * cfg.nutrition("tracking.kcal_per_lb_tissue") / 7
+
+
+def carbs_below_minimum(state: ClientState, bw: float, cfg: Config) -> list[str]:
+    """Flags day types whose current carbs already sit below that day type's minimum:
+    usually a sign the client's day was mapped to the wrong day type."""
+    out = []
+    for day_type, m in (state.current_macros or {}).items():
+        if m.carb_g < cfg.nutrition(f"carbs.by_day_type.{day_type}.minimum") * bw:
+            out.append(f"carbs_below_day_type_minimum:{day_type}")
+    return out
 
 
 def _rate_band(phase: str, cfg: Config) -> tuple[float, float] | None:
@@ -37,7 +50,16 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
 
     checkin = state.latest_checkin
     threshold = cfg.setting("adherence_threshold_pct")
-    if checkin and checkin["adherence_pct"] < threshold:
+    max_age = cfg.setting("adherence.checkin_max_age_days")
+    if checkin is None or (as_of - checkin["date"]).days > max_age:
+        last = checkin["date"].isoformat() if checkin else "never"
+        return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "hold",
+                             rationale=f"no check-in in the last {max_age} days (last: {last}): "
+                                       "adherence unknown, so no calorie change",
+                             inputs_used={"last_checkin": last},
+                             config_keys=["engine-settings:adherence.checkin_max_age_days"],
+                             data_quality_flags=["no_recent_checkin"])]
+    if checkin["adherence_pct"] < threshold:
         return [new_proposal(cid, as_of, RULE_ID, f"calories.{ph.phase}", "adherence_intervention",
                              rationale=f"adherence {checkin['adherence_pct']:.0f}% < {threshold}%: "
                                        "fix adherence before changing calories",
@@ -79,10 +101,32 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
         # calorie change that moves the actual rate to the target
         gap = (directional - target) if ph.phase == "cut" else (target - directional)
 
-    kcal = round(kcal_per_day_for_rate_gap(gap, bw, cfg))
+    full = round(kcal_per_day_for_rate_gap(gap, bw, cfg))
+    cap = cfg.setting("calorie_step_cap.max_kcal_change_per_step")
+    kcal = max(-cap, min(cap, full))
+    inputs["full_gap_kcal_per_day"] = full
+    keys = keys + ["engine-settings:calorie_step_cap"]
+    flags: list[str] = ["step_capped"] if kcal != full else []
+    flags += carbs_below_minimum(state, bw, cfg)
+
+    # In a cut, cheaper reversible cardio levers come before calories.
+    if ph.phase in ("cut", "mini_cut") and kcal < 0:
+        step, considered = cardio_lever.next_step(state, cfg)
+        inputs["cardio_levers_considered"] = considered
+        if step is not None:
+            return [new_proposal(
+                cid, as_of, "nutrition.cardio_lever", "cardio", "increase_cardio",
+                rationale=f"{ph.phase}: {rate:+.2f}%/wk vs target {target}%/wk -> cardio {step.lever} "
+                          f"first (~{step.kcal_per_day} kcal/day, ~{step.lb_per_week} lb/week); "
+                          "calories unchanged",
+                current_value=step.current, proposed_value={"lever": step.lever, **step.proposed,
+                                                            "est_kcal_per_day": step.kcal_per_day,
+                                                            "est_lb_per_week": step.lb_per_week},
+                inputs_used=inputs, config_keys=keys + ["engine-settings:cardio_lever"],
+                data_quality_flags=sorted(set(flags)))]
+
     action = "increase_calories" if kcal > 0 else "decrease_calories"
     proposed: dict = {"kcal_per_day_change": kcal}
-    flags: list[str] = []
     if state.current_macros:
         new = {}
         for day_type, m in state.current_macros.items():
@@ -95,7 +139,8 @@ def evaluate(state: ClientState, cfg: Config) -> list[Proposal]:
         flags.append("no_current_targets")
     return [new_proposal(
         cid, as_of, RULE_ID, f"calories.{ph.phase}", action,
-        rationale=f"{ph.phase}: {rate:+.2f}%/wk vs target {target}%/wk -> {kcal:+d} kcal/day",
+        rationale=f"{ph.phase}: {rate:+.2f}%/wk vs target {target}%/wk -> {kcal:+d} kcal/day"
+                  + (f" (capped; full gap {full:+d})" if kcal != full else ""),
         current_value={k: v.model_dump() for k, v in (state.current_macros or {}).items()} or None,
         proposed_value=proposed, inputs_used=inputs, config_keys=keys,
         data_quality_flags=sorted(set(flags)))]

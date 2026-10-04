@@ -110,3 +110,21 @@ def test_duplicate_limitation_ids_rejected(cfg):
     lim = {"limitation_id": "a", "area": "knee", "restrictions": ["no jumping"]}
     with pytest.raises(OnboardingError, match="duplicate"):
         onboard(EventStore(), _config(limitations=[lim, lim]), cfg, base_dir=SAMPLE)
+
+
+def test_onboarding_cardio_ceilings_reach_state(cfg):
+    store = EventStore()
+    onboard(store, _config(cardio_max_sessions_per_week=3, cardio_max_minutes_per_session=40), cfg,
+            base_dir=SAMPLE)
+    st = build_state(store.read("SYN-CUT-01"), date(2026, 9, 28), cfg)
+    assert (st.cardio_max_sessions_per_week, st.cardio_max_minutes_per_session) == (3, 40)
+    assert st.cardio_recent and all(s["modality"] == "incline walk" for s in st.cardio_recent)
+
+
+def test_onboarding_warns_when_day_type_looks_wrong(cfg):
+    low = {"moderate": {"protein_g": 190, "carb_g": 120, "fat_g": 65},
+           "non_training": {"protein_g": 190, "carb_g": 150, "fat_g": 70}}
+    rep = onboard(EventStore(), _config(nutrition_targets=low), cfg, base_dir=SAMPLE).data
+    assert any("below the book minimum for 'moderate'" in w for w in rep["warnings"])
+    nut = [p for p in rep["proposals"] if p["rule_id"].startswith("nutrition")]
+    assert "carbs_below_day_type_minimum:moderate" in nut[0]["flags"]

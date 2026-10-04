@@ -13,10 +13,13 @@
       "min_intake_days_per_week": 5,
       "max_gap_days": 7,
       "implausible_daily_weight_change_pct": 3.0,
-      "rir_valid_range": [0, 10]
+      "rir_valid_range": [
+        0,
+        10
+      ]
     },
     "_provisional": true,
-    "_source": "BUILD_SPEC §7.5 (min weigh-ins/week is read from nutrition tracking.weigh_ins_per_week[0])"
+    "_source": "BUILD_SPEC \u00a77.5 (min weigh-ins/week is read from nutrition tracking.weigh_ins_per_week[0])"
   },
   "confidence": {
     "value": {
@@ -25,7 +28,7 @@
       "low_at_flag_count": 2
     },
     "_provisional": true,
-    "_source": "placeholder scoring for BUILD_SPEC §7.5 'flags lower proposal confidence'"
+    "_source": "placeholder scoring for BUILD_SPEC \u00a77.5 'flags lower proposal confidence'"
   },
   "cold_start": {
     "value": {
@@ -51,28 +54,68 @@
       "performance_falling_score": 2
     },
     "_provisional": true,
-    "_source": "placeholder signals for 'past recommended cut length + fatigue' (BUILD_SPEC §11)"
+    "_source": "placeholder signals for 'past recommended cut length + fatigue' (BUILD_SPEC \u00a711)"
   },
   "maintenance_confidence": {
     "value": {
-      "high": {"min_intake_days_per_week": 6, "min_weigh_ins_per_week": 3},
-      "medium": {"min_intake_days_per_week": 5, "min_weigh_ins_per_week": 2}
+      "high": {
+        "min_intake_days_per_week": 6,
+        "min_weigh_ins_per_week": 3
+      },
+      "medium": {
+        "min_intake_days_per_week": 5,
+        "min_weigh_ins_per_week": 2
+      }
     },
     "_provisional": true,
-    "_source": "placeholder for BUILD_SPEC §7.3 confidence"
+    "_source": "placeholder for BUILD_SPEC \u00a77.3 confidence"
   },
   "cardio": {
     "value": {
-      "kcal_per_min_by_intensity": {"low": 5, "mod": 8, "high": 11}
+      "kcal_per_min_by_intensity": {
+        "low": 5,
+        "mod": 8,
+        "high": 11
+      }
     },
     "_provisional": true,
-    "_source": "BUILD_SPEC §7.4 — not from either source book"
+    "_source": "BUILD_SPEC \u00a77.4 \u2014 not from either source book"
   },
   "energy": {
     "value": {
-      "kcal_per_g": {"protein": 4, "carb": 4, "fat": 9}
+      "kcal_per_g": {
+        "protein": 4,
+        "carb": 4,
+        "fat": 9
+      }
     },
     "_provisional": true,
     "_source": "standard Atwater factors; not stated in knowledge JSON"
+  },
+  "calorie_step_cap": {
+    "value": {
+      "max_kcal_change_per_step": 250
+    },
+    "_provisional": false,
+    "_source": "owner decision 2026-10-04: cap each calorie adjustment (~0.5 lb/week) so changes stay attributable; larger gaps close over several check-ins"
+  },
+  "adherence": {
+    "value": {
+      "checkin_max_age_days": 14
+    },
+    "_provisional": true,
+    "_source": "owner decision 2026-10-04: no recent check-in -> hold calories. The 14-day 'recent' window is a placeholder"
+  },
+  "cardio_lever": {
+    "value": {
+      "enabled": true,
+      "lookback_days": 14,
+      "default_max_sessions_per_week": 5,
+      "default_max_minutes_per_session": 45,
+      "duration_step_minutes": 10,
+      "noise_floor_lb_per_week": 0.1
+    },
+    "_provisional": true,
+    "_source": "owner decision 2026-10-04: cardio frequency then duration are tried before calories in a cut, coach-approved. All numbers are placeholders (not in either book)"
   }
 }

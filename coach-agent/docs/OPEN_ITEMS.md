@@ -11,11 +11,11 @@
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
 
-## Found by the first real-data test (2026-10-03) — rule changes, owner decision needed
-- [ ] **No step cap on calorie changes.** §7.2 closes the whole rate gap in one adjustment (−491 kcal/day for the test client). Coaching practice in the record: one lever at a time, sized above the scale's noise floor. Add a max change per adjustment?
-- [ ] **Missing adherence data doesn't lower confidence.** With no check-ins, the adherence gate is skipped and confidence stays high. Treat "no recent check-in" as a confidence flag?
-- [ ] **Day-type mapping.** The client's training-day carbs (190 g) are already below the book's `moderate` minimum (1.0 g/lb ≈ 207 g), so cuts fall entirely on rest days (130 → 62 g). Which day type a client's "training day" maps to (light vs moderate) needs a coach rule
-- [ ] **Cardio levers.** The engine never proposes cardio changes (§7.4, by design). The client's method uses cardio frequency/duration before carbs. Keep the engine nutrition-only, or add cardio as a coach-approved lever?
+## Decided 2026-10-04 (from the first real-data test)
+- [x] **Calorie step cap:** each adjustment is capped at 250 kcal/day (`calorie_step_cap`); the full gap is kept in `inputs_used` and flagged `step_capped`
+- [x] **No recent check-in → hold calories** (flag `no_recent_checkin`). The "recent" window is provisional (`adherence`)
+- [x] **Day type per client:** the coach labels each client's days (e.g. training day = `light`) in the targets data. Onboarding warns and proposals flag `carbs_below_day_type_minimum:<day>` when a day's carbs are already below its book minimum
+- [x] **Cardio as a lever** in a cut, before calories: frequency, then duration, each only if it clears the noise floor; same modality (limitation-safe); coach-approved. Per-client ceilings via onboarding `cardio_max_sessions_per_week` / `cardio_max_minutes_per_session`. Amends BUILD_SPEC §7.4
 
 ## Provisional (not from source books)
 Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
@@ -27,6 +27,8 @@ Values live in `config/engine-settings.json` (`_provisional: true`). Keys:
 - [ ] `maintenance_confidence`: intake days/weigh-ins per week for high/medium calibration confidence
 - [ ] `cardio`: kcal/min by intensity when est_kcal is missing (BUILD_SPEC §7.4)
 - [ ] `energy`: Atwater kcal/g (4/4/9)
+- [ ] `adherence`: a check-in counts as recent for 14 days
+- [ ] `cardio_lever`: default ceilings (5 sessions/week, 45 min/session), +10 min duration step, 0.1 lb/week noise floor, 14-day lookback
 - [ ] Cardio rules (BUILD_SPEC §7.4)
 - [ ] Recomp phase guidance: the engine emits `flag` only
 - [ ] Mini-cut rate ("slightly faster than a standard cut"): the engine emits `flag` only

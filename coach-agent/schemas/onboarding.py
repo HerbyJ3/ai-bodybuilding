@@ -66,6 +66,8 @@ class OnboardingConfig(_In):
     as_of: date
     consent: ConsentInput
     training_age: TrainingAge | None = None
+    cardio_max_sessions_per_week: int | None = Field(default=None, ge=0)  # schedule/limitation ceiling
+    cardio_max_minutes_per_session: int | None = Field(default=None, ge=0)
     phase: PhaseInput
     meso: MesoInput | None = None  # None: no mesocycle structure (training rules stay inactive)
     limitations: list[LimitationInput] = Field(default_factory=list)

@@ -176,9 +176,10 @@ def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Co
                              {"phase": ph.phase, "target_rate_pct_bw": ph.target_rate_pct_bw,
                               "planned_weeks": ph.planned_weeks}, src, recorded_at))
     events += meso_events
-    if oc.training_age:
-        events.append(make_event(cid, "profile_updated", _at(as_of),
-                                 {"training_age": oc.training_age}, src, recorded_at))
+    profile = {k: getattr(oc, k) for k in ("training_age", "cardio_max_sessions_per_week",
+                                           "cardio_max_minutes_per_session") if getattr(oc, k) is not None}
+    if profile:
+        events.append(make_event(cid, "profile_updated", _at(as_of), profile, src, recorded_at))
     if oc.nutrition_targets:
         events.append(make_event(cid, "nutrition_targets_set", _at(as_of),
                                  {"macros_by_day_type": oc.nutrition_targets,
@@ -233,6 +234,12 @@ def onboard(store: EventStore, oc: OnboardingConfig, cfg: Config, base_dir: Path
     all_events = store.read(cid)
     state = build_state(all_events, as_of, cfg)
     props = proposals.generate(state, cfg)
+    if state.weight.latest_avg_lb:
+        from engine.nutrition.adjustment import carbs_below_minimum
+        for flag in carbs_below_minimum(state, state.weight.latest_avg_lb, cfg):
+            day_type = flag.split(":", 1)[1]
+            warnings.append(f"current {day_type}-day carbs are below the book minimum for '{day_type}' "
+                            "days: check which day type this client's day really is")
     review = history_review.review(all_events, state, cfg)
 
     flags = [f.model_dump() for f in state.data_quality]

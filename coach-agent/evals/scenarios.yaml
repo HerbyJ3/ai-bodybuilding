@@ -42,7 +42,7 @@ engine:
     expect: {action: adherence_intervention}
 
   - id: cut_slow_loss_reduces_fat_first
-    desc: Cut, adherence 95%, losing 0.2%/wk for 3 weeks -> reduce fat to floor, then carbs
+    desc: Cut, adherence 95%, losing 0.2%/wk for 3 weeks -> reduce fat to floor, then carbs (capped at 250 kcal/step)
     kind: weekly_adjustment
     input:
       phase: cut
@@ -54,8 +54,9 @@ engine:
       macros: {moderate: {protein_g: 200, carb_g: 300, fat_g: 80}}
     expect:
       action: decrease_calories
-      kcal_per_day_change: -550
-      macros: {moderate: {protein_g: 200, carb_g: 208, fat_g: 60}}
+      kcal_per_day_change: -250
+      full_gap_kcal_per_day: -550
+      macros: {moderate: {protein_g: 200, carb_g: 282, fat_g: 60}}
 
   - id: cut_slow_loss_fat_at_floor
     desc: Same, but fat already at its floor -> carbs only
@@ -70,13 +71,32 @@ engine:
       macros: {moderate: {protein_g: 200, carb_g: 400, fat_g: 60}}
     expect:
       action: decrease_calories
-      macros: {moderate: {protein_g: 200, carb_g: 262, fat_g: 60}}
+      macros: {moderate: {protein_g: 200, carb_g: 338, fat_g: 60}}
 
   - id: gain_too_fast
-    desc: Gain, gaining 1% BW/week -> reduce the surplus
+    desc: Gain, gaining 1% BW/week -> reduce the surplus (capped step)
     kind: weekly_adjustment
     input: {phase: gain, target_rate: 0.4, pct_bw_per_week: 1.0, trend_weeks: 3, adherence: 95, bodyweight_lb: 200}
-    expect: {action: decrease_calories, kcal_per_day_change: -600}
+    expect: {action: decrease_calories, kcal_per_day_change: -250, full_gap_kcal_per_day: -600}
+
+  - id: no_checkin_holds
+    desc: Cut losing too slowly but no check-in (adherence unknown) -> hold calories
+    kind: weekly_adjustment
+    input: {phase: cut, target_rate: 0.75, pct_bw_per_week: -0.2, trend_weeks: 3, bodyweight_lb: 200}
+    expect: {action: hold}
+
+  - id: cardio_before_carbs
+    desc: Cut too slow with room to add a cardio session -> cardio frequency first, calories unchanged
+    kind: weekly_adjustment
+    input:
+      phase: cut
+      target_rate: 0.75
+      pct_bw_per_week: -0.2
+      trend_weeks: 3
+      adherence: 95
+      bodyweight_lb: 200
+      cardio: {sessions_in_14_days: 4, minutes: 45, est_kcal: 450}
+    expect: {action: increase_cardio, lever: frequency, sessions_per_week: 3}
 
   - id: cut_week14_fatigued
     desc: Cut at week 14 with hunger 5 and falling performance -> transition to maintenance

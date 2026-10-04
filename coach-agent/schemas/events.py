@@ -160,6 +160,9 @@ class LimitationRecorded(_Payload):
 
 class ProfileUpdated(_Payload):
     training_age: TrainingAge | None = None
+    # per-client cardio ceilings (schedule, limitations); None = engine default
+    cardio_max_sessions_per_week: int | None = Field(default=None, ge=0)
+    cardio_max_minutes_per_session: int | None = Field(default=None, ge=0)
 
 
 class OnboardingCompleted(_Payload):

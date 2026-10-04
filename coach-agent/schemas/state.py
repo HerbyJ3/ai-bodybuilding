@@ -110,4 +110,7 @@ class ClientState(BaseModel):
     latest_checkin: dict | None = None
     checkins_recent: list[dict] = Field(default_factory=list)  # most recent first
     cardio_minutes_by_week: list[float] = Field(default_factory=list)  # most recent first
+    cardio_recent: list[dict] = Field(default_factory=list)  # sessions in the lever lookback, oldest first
+    cardio_max_sessions_per_week: int | None = None
+    cardio_max_minutes_per_session: int | None = None
     data_quality: list[DataQualityFlag] = Field(default_factory=list)

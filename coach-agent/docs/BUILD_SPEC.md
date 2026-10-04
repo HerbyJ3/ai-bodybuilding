@@ -205,7 +205,9 @@ All rules are **pure functions**: `(ClientState, config) → list[Proposal]`. No
 - **Weekly adjustment:**
   1. If adherence is below threshold → propose an adherence intervention, **not** a calorie change.
   2. Require ≥ 2 weeks of trend data. Never adjust on a single weigh-in.
-  3. Compute the gap between the actual and target rate, then convert: `kcal/day = (lb/week gap × 3500) / 7`.
+  2b. No check-in within `adherence.checkin_max_age_days` → **hold** (adherence unknown). *(Owner decision 2026-10-04.)*
+  3. Compute the gap between the actual and target rate, then convert: `kcal/day = (lb/week gap × 3500) / 7`. **Cap each adjustment at `calorie_step_cap.max_kcal_change_per_step`** (250); larger gaps close over several check-ins. *(Owner decision 2026-10-04.)*
+  3b. **Cut, too slow:** try the cardio lever first (§7.4), then calories.
   4. **Cut:** take from fat down to its floor, then from carbs. Never reduce protein.
   5. **Gain:** add carbs first, then fat.
 - **Phases:** enforce duration limits and transition procedures (`transitions.*`), e.g. cut → maintenance jumps to the midpoint, then steps up ~20% every 3–4 weeks while weight is stable.
@@ -221,7 +223,8 @@ Confidence depends on intake-logging completeness and weigh-in frequency. Prefer
 Neither source covers cardio programming in depth. Implement these provisional rules, mark them in `OPEN_ITEMS.md`, and keep them easy to change:
 - Cardio counts toward day-type classification for calorie and carb purposes, using duration and intensity.
 - If leg soreness or performance scores worsen in the same weeks cardio volume rises, flag possible interference for coach review. **Don't** auto-propose changes.
-- Never auto-propose adding cardio. Cardio changes are coach-initiated only.
+- ~~Never auto-propose adding cardio.~~ **Amended by owner decision 2026-10-04:** in a cut that is losing too slowly, the engine proposes cardio *before* calories, from cheapest to most expensive lever: (1) one more session per week at the usual length, if below the client's session ceiling; (2) longer sessions (+`duration_step_minutes`), if below the minutes ceiling. A lever is skipped if its estimated effect is below `noise_floor_lb_per_week`. The client's current modality is kept, so limitations stay respected. Always coach-approved (`increase_cardio`; low confidence → hold). Calories change only when no cardio lever clears the floor. Settings: `cardio_lever` (provisional); per-client ceilings come from the profile.
+- Day types are labelled per client by the coach. A day whose carbs already sit below its day type's minimum is flagged.
 
 ### 7.5 Data quality (`data_quality.py`)
 Flag rather than fail. Flags lower proposal confidence:
