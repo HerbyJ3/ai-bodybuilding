@@ -3,6 +3,7 @@ Mr. J's calls to Claude). Start with `coach dashboard`."""
 from __future__ import annotations
 
 import json
+import math
 import re
 from urllib.parse import urlencode
 from datetime import date, datetime
@@ -213,6 +214,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         _, store = client(cid)
         try:
             w = float(weight)
+            if not math.isfinite(w):
+                raise ValueError("weight must be a number")
             if unit not in ("lb", "kg"):
                 raise ValueError("unit must be lb or kg")
             store.append([make_event(cid, "weigh_in", _when(when, as_of),

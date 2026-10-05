@@ -243,6 +243,7 @@ def test_weigh_in_form(env, cfg):
         date(2026, 9, 28), 187.4, "lb", "fasted", "coach")
     data = r.text.split('id="weight-data">')[1].split("</script>")[0]
     assert '"2026-09-28"' in data  # shows up on the chart
-    for bad in ({"weight": "abc", "unit": "lb"}, {"weight": "0", "unit": "lb"}, {"weight": "180", "unit": "stone"}):
+    for bad in ({"weight": "abc", "unit": "lb"}, {"weight": "0", "unit": "lb"}, {"weight": "180", "unit": "stone"},
+                {"weight": "inf", "unit": "lb"}, {"weight": "nan", "unit": "lb"}):
         r = client.post(f"/client/{CID}/weigh-in", data={"as_of": AS_OF, **bad}, follow_redirects=True)
         assert "weigh-in not saved" in r.text
