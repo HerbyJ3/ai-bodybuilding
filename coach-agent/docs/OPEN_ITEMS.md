@@ -8,6 +8,14 @@
 - [ ] Auto-approval policy (post-v1)
 - [ ] Tech stack: built with the BUILD_SPEC §4 defaults (Python 3.11, Pydantic v2, SQLite, pytest, Typer). Confirm
 
+## Client web app (owner decisions 2026-10-05)
+- [x] Current dashboard = **coach/admin view**; most logging moves to a **client app**
+- [x] Clients **talk to Mr. J directly**; clients message the coach **only for support issues**
+- [x] First client features: weigh-in, Daily Target, check-in, approved targets, weight chart, coach messages
+- [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
+- [ ] Mr. J cost control for client chat (who pays, per-client limits)
+- [ ] Path: local client-view prototype → hosted beta (2–3 clients) → installable phone web app → App Store / Google Play if the beta works
+
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
 

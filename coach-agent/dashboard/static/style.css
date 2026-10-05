@@ -144,3 +144,4 @@ svg.chart .hit { fill: transparent; cursor: crosshair; }
 .check { gap: 6px; } .check input { width: auto; }
 
 [hidden] { display: none !important; }
+.weigh-form { display: grid; gap: 8px; } .weigh-form input.num { width: 6.5em; } .weigh-form select { width: auto; }

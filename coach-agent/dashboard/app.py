@@ -3,6 +3,7 @@ Mr. J's calls to Claude). Start with `coach dashboard`."""
 from __future__ import annotations
 
 import json
+import math
 import re
 from urllib.parse import urlencode
 from datetime import date, datetime
@@ -205,6 +206,24 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         except ValueError as exc:
             return back(cid, as_of, "checkins", error=f"check-in not saved: {exc}")
         return back(cid, as_of, "checkins", notice="Check-in saved")
+
+    @app.post("/client/{cid}/weigh-in")
+    def weigh_in(cid: str, as_of: str = Form(""), when: str = Form(""), weight: str = Form(...),
+                 unit: str = Form("lb"), conditions: str = Form("")):
+        from schemas.events import Source, make_event
+        _, store = client(cid)
+        try:
+            w = float(weight)
+            if not math.isfinite(w):
+                raise ValueError("weight must be a number")
+            if unit not in ("lb", "kg"):
+                raise ValueError("unit must be lb or kg")
+            store.append([make_event(cid, "weigh_in", _when(when, as_of),
+                                     {"weight": w, "unit": unit,
+                                      "conditions": conditions.strip() or "unspecified"}, Source.coach)])
+        except ValueError as exc:
+            return back(cid, as_of, "weigh-in", error=f"weigh-in not saved: {str(exc).splitlines()[-1].strip()}")
+        return back(cid, as_of, "weigh-in", notice=f"Weigh-in saved: {w:g} {unit}")
 
     @app.post("/client/{cid}/macros-hit")
     async def macros_hit(request: Request, cid: str):
