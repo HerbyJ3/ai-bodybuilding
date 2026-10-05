@@ -206,6 +206,22 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             return back(cid, as_of, "checkins", error=f"check-in not saved: {exc}")
         return back(cid, as_of, "checkins", notice="Check-in saved")
 
+    @app.post("/client/{cid}/weigh-in")
+    def weigh_in(cid: str, as_of: str = Form(""), when: str = Form(""), weight: str = Form(...),
+                 unit: str = Form("lb"), conditions: str = Form("")):
+        from schemas.events import Source, make_event
+        _, store = client(cid)
+        try:
+            w = float(weight)
+            if unit not in ("lb", "kg"):
+                raise ValueError("unit must be lb or kg")
+            store.append([make_event(cid, "weigh_in", _when(when, as_of),
+                                     {"weight": w, "unit": unit,
+                                      "conditions": conditions.strip() or "unspecified"}, Source.coach)])
+        except ValueError as exc:
+            return back(cid, as_of, "weigh-in", error=f"weigh-in not saved: {str(exc).splitlines()[-1].strip()}")
+        return back(cid, as_of, "weigh-in", notice=f"Weigh-in saved: {w:g} {unit}")
+
     @app.post("/client/{cid}/macros-hit")
     async def macros_hit(request: Request, cid: str):
         from schemas.events import Source, make_event

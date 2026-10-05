@@ -231,3 +231,18 @@ def test_daily_target_non_training_checkbox(env, cfg):
     assert logs == {date(2026, 9, 27): "non_training", date(2026, 9, 26): "moderate"}
     r = client.get(f"/client/{CID}?as_of={AS_OF}")
     assert "2026-09-27 (non-training): hit" in r.text
+
+
+def test_weigh_in_form(env, cfg):
+    client, _, db = env
+    r = client.post(f"/client/{CID}/weigh-in", data={"as_of": AS_OF, "when": "2026-09-28", "weight": "187.4",
+                                                     "unit": "lb", "conditions": "fasted"}, follow_redirects=True)
+    assert "Weigh-in saved: 187.4 lb" in r.text and "Add weigh-in" in r.text
+    w = [e for e in EventStore(db).read(CID) if e.type == "weigh_in"][-1]
+    assert (w.day, w.payload.weight, w.payload.unit, w.payload.conditions, w.source.value) == (
+        date(2026, 9, 28), 187.4, "lb", "fasted", "coach")
+    data = r.text.split('id="weight-data">')[1].split("</script>")[0]
+    assert '"2026-09-28"' in data  # shows up on the chart
+    for bad in ({"weight": "abc", "unit": "lb"}, {"weight": "0", "unit": "lb"}, {"weight": "180", "unit": "stone"}):
+        r = client.post(f"/client/{CID}/weigh-in", data={"as_of": AS_OF, **bad}, follow_redirects=True)
+        assert "weigh-in not saved" in r.text

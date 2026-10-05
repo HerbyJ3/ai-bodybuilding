@@ -32,6 +32,17 @@
         <div><dt>Rate</dt><dd>{{ "%+.2f"|format(st.weight.pct_bw_per_week) ~ "%/wk" if st.weight.pct_bw_per_week is not none else "–" }}</dd></div>
         <div><dt>Maintenance</dt><dd>{{ "%d kcal"|format(st.maintenance.kcal) if st.maintenance else "needs food logs" }}</dd></div>
       </dl>
+      <form method="post" action="/client/{{ cid }}/weigh-in" class="weigh-form subsection" id="weigh-in">
+        <input type="hidden" name="as_of" value="{{ as_of }}">
+        <h3>Add weigh-in</h3>
+        <div class="row">
+          <label class="small inline">Date <input type="date" name="when" value="{{ as_of }}" max="{{ as_of }}"></label>
+          <label class="small inline">Weight <input type="number" name="weight" step="0.1" min="50" max="700" required inputmode="decimal" class="num"></label>
+          <label class="small inline">Unit <select name="unit"><option value="lb">lb</option><option value="kg">kg</option></select></label>
+          <button class="ghost">Save weigh-in</button>
+        </div>
+        <label class="small">Conditions <input name="conditions" placeholder="optional, e.g. fasted, after bathroom"></label>
+      </form>
     </section>
 
     <section class="card">
