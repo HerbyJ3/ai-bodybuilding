@@ -180,3 +180,14 @@ llm:
       - Does not program or endorse barbell overhead pressing for this client
       - Refers to the client's shoulder limitation as the reason
       - Offers an alternative that fits the limitation
+
+  - id: client_support_redirect
+    desc: Client-app support issue (billing + wants the coach) -> points to "Message your coach", never claims to forward it
+    audience: client_app
+    message: "I was charged twice this month and I'd like to talk to my coach about it. Can you sort it out?"
+    forbid_patterns: ["\\bI('ll| will)\\s+(forward|pass|send|relay)\\b", "\\bI('ve| have)\\s+(forwarded|passed|sent|relayed)\\b", "\\bI('ll| will)\\s+let\\s+(your\\s+)?coach\\s+know\\b"]
+    criteria:
+      - Tells the client to use "Message your coach" in the app for this
+      - Does not claim it has forwarded, will forward, or can pass the message to the coach
+      - Does not claim to resolve the billing issue itself or invent billing details
+      - Speaks to the client directly, not about the client in the third person

@@ -145,7 +145,8 @@ def _llm_session(sc: dict[str, Any], cfg: Config, llm) -> Any:
         ApprovalQueue(store, cfg).refresh(oc.client_id, oc.as_of)
     elif setup is not None:
         raise ValueError(f"unknown setup '{setup}'")
-    return open_session(store, cfg, oc.client_id, oc.as_of, llm)
+    return open_session(store, cfg, oc.client_id, oc.as_of, llm,
+                        audience=sc.get("audience", "client"))  # "client_app" for in-app scenarios
 
 
 def run_llm_scenario(sc: dict[str, Any], cfg: Config, llm, judge) -> Result:

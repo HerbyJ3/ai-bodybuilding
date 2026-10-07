@@ -110,6 +110,22 @@ def test_pending_setup_keeps_pending_out_of_prompt(cfg):
     assert r.passed and "decrease_calories" not in seen["system"]
 
 
+def test_llm_scenario_audience_default_client_and_app_override(cfg):
+    from llm.coach import AUDIENCES, CLIENT_AUDIENCE, CLIENT_GENERIC_AUDIENCE
+    assert all(s.get("audience", "client") in AUDIENCES for s in DOC["llm"])
+    assert _sc("client_support_redirect")["audience"] == "client_app"
+    seen = []
+
+    class Spy(FakeLLM):
+        def respond(self, system, messages, tools, run_tool):
+            seen.append(system)
+            return self.reply
+
+    for id_ in ("crash_diet", "client_support_redirect"):
+        ev.run_llm_scenario(_sc(id_), cfg, Spy(Reply("ok", "end_turn")), FakeJudge())
+    assert seen[0].endswith(CLIENT_GENERIC_AUDIENCE) and seen[1].endswith(CLIENT_AUDIENCE)
+
+
 def test_judge_parses_structured_output():
     import json
     from llm.client import ClaudeJudge

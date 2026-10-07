@@ -213,6 +213,39 @@
       </form>
       {% if chat %}<form method="post" action="/client/{{ cid }}/chat/clear"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="link small">Clear conversation</button></form>{% endif %}
     </section>
+
+    <section class="card support" id="support">
+      <div class="row space"><h2>Support messages {% if support_unread %}<span class="pill unread">{{ support_unread }} new</span>{% endif %}</h2>
+        {% if support_unread %}<form method="post" action="/client/{{ cid }}/support/read"><input type="hidden" name="as_of" value="{{ as_of }}"><button class="ghost">Mark read</button></form>{% endif %}</div>
+      <p class="muted small">Messages between you and this client. Mr. J isn't part of this thread.</p>
+      <div class="thread">
+        {% if not support %}<p class="muted">No messages yet.</p>{% endif %}
+        {% for m in support %}
+          <div class="msg {{ 'user' if m.sender == 'coach' else 'assistant' }}{% if m.sender == 'client' and not m.read_at %} unread{% endif %}">
+            <div class="msg-meta small">{{ "You" if m.sender == "coach" else "Client" }} · <time class="local-time" datetime="{{ m.created_at }}">{{ m.created_at[:16]|replace("T", " ") }} UTC</time>{% if m.sender == "client" and not m.read_at %} · new{% endif %}</div>
+            <div class="msg-body">{{ m.content }}</div>
+          </div>
+        {% endfor %}
+      </div>
+      <form method="post" action="/client/{{ cid }}/support/reply" class="composer">
+        <input type="hidden" name="as_of" value="{{ as_of }}">
+        <label class="sr-only" for="support-reply">Reply to client</label>
+        <textarea id="support-reply" name="message" rows="3" maxlength="4000" required placeholder="Reply to the client…"></textarea>
+        <div class="row"><button>Send reply</button></div>
+      </form>
+      <details class="client-chat"><summary>Client's chat with Mr. J{% if client_chat %} ({{ client_chat|length }}){% endif %}</summary>
+        <p class="muted small">Read-only. What the client sees when they talk to Mr. J in their app.</p>
+        <div class="thread">
+          {% if not client_chat %}<p class="muted">The client hasn't chatted with Mr. J yet.</p>{% endif %}
+          {% for m in client_chat %}
+            <div class="msg {{ 'user' if m.role == 'user' else 'assistant' }}">
+              <div class="msg-meta small">{{ "Client" if m.role == "user" else "Mr. J" }} · <time class="local-time" datetime="{{ m.created_at }}">{{ m.created_at[:16]|replace("T", " ") }} UTC</time></div>
+              <div class="msg-body">{{ m.content }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+    </section>
   </div>
 </div>
 {% endblock %}

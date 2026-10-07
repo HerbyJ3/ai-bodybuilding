@@ -196,7 +196,8 @@ def build_state(events: list[Event], as_of: date, cfg: Config) -> ClientState:
                 {"date": d.isoformat(), "hit": p.hit, "off_by": dict(p.off_by), "day_type": p.day_type}
                 for d, p in sorted(daily.items(), reverse=True)]}
     # one check-in per date: re-saving a date replaces it (latest wins)
-    by_date = {e.day: dict(e.payload.model_dump(), date=e.day) for e in by_type["weekly_checkin"]}
+    by_date = {e.day: dict(e.payload.model_dump(), date=e.day, source=e.source.value)
+               for e in by_type["weekly_checkin"]}
     checkins = [by_date[d] for d in sorted(by_date)]
     st.checkins_recent = list(reversed(checkins))[:4]
     st.latest_checkin = st.checkins_recent[0] if st.checkins_recent else None

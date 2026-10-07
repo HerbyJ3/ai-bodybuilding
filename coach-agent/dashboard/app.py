@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from approvals.queue import ApprovalQueue, QueueError
 from config.loader import Config, load_config
 from dashboard.charts import weight_series, weight_svg
-from dashboard.store import ChatStore, ClientRef, find_clients
+from dashboard.store import ChatStore, ClientRef, SupportStore, find_clients
 from engine import data_quality, history_review
 from engine.state_builder import build_state
 from ingest.onboarding import OnboardingError, load_onboarding_config, onboard
@@ -31,11 +31,81 @@ MACRO_KEYS = {"protein": "protein_g", "carbs": "carb_g", "fat": "fat_g"}
 OFF_BY_CHOICES = [-100, -75, -50, -40, -30, -20, -10, 10, 20, 30, 40, 50, 75, 100]
 UPLOAD_NAME = re.compile(r"^[A-Za-z0-9._-]+\.(csv|json)$")
 SAFE_DIR = re.compile(r"[^a-z0-9_-]+")
+MAX_MESSAGE = 4000  # characters per chat/support message (same limit as the UI)
+
+
+def check_message(text: str) -> str:
+    """Trimmed message text; raises ValueError when empty or too long."""
+    text = (text or "").strip()
+    if not text:
+        raise ValueError("please write a message first")
+    if len(text) > MAX_MESSAGE:
+        raise ValueError(f"messages are limited to {MAX_MESSAGE} characters")
+    return text
 
 
 def training_day_type(macros: dict | None) -> str | None:
     """The client's training-day targets: the first day type that isn't the rest (non_training) day."""
     return next((k for k in (macros or {}) if k != "non_training"), None)
+
+
+def checkin_payload(hunger: str, energy: str, training_feel: str = "", sleep_hours: str = "",
+                    notes: str = "") -> dict[str, Any]:
+    """Check-in form -> weekly_checkin payload (raises ValueError on bad input)."""
+    if hunger not in LEVELS or energy not in LEVELS:
+        raise ValueError("hunger and energy must be low, mid or high")
+    payload: dict[str, Any] = {"hunger": LEVELS[hunger], "energy": LEVELS[energy], "notes": notes.strip()}
+    if training_feel:
+        payload["training_feel"] = training_feel
+    if sleep_hours:
+        h = float(sleep_hours)
+        if not math.isfinite(h):
+            raise ValueError("sleep must be a number of hours")
+        payload["sleep_hours"] = h
+    return payload
+
+
+def weigh_in_payload(weight: str, unit: str, conditions: str = "") -> dict[str, Any]:
+    """Weigh-in form -> weigh_in payload (raises ValueError on bad input)."""
+    w = float(weight)
+    if not math.isfinite(w):
+        raise ValueError("weight must be a number")
+    if unit not in ("lb", "kg"):
+        raise ValueError("unit must be lb or kg")
+    return {"weight": w, "unit": unit, "conditions": conditions.strip() or "unspecified"}
+
+
+def adherence_payload(when: date, hit: bool, off: dict[str, str], non_training: bool,
+                      macros: dict | None) -> dict[str, Any]:
+    """Daily Target form -> macro_adherence_logged payload. `off` maps protein/carbs/fat to the
+    chosen grams (ignored when hit); `macros` are the client's current targets on that date."""
+    off_by = {}
+    if not hit:
+        for name, key in MACRO_KEYS.items():
+            v = str(off.get(name, "") or "")
+            if v:
+                g = float(v)
+                if not math.isfinite(g):
+                    raise ValueError("off-by amounts must be numbers")
+                off_by[key] = g
+    day_type = "non_training" if non_training else training_day_type(macros)
+    return {"date": when, "hit": hit, "off_by": off_by, "day_type": day_type}
+
+
+def error_text(exc: Exception) -> str:
+    """The readable part of an error: a pydantic error's first message (field: reason), otherwise
+    the last line, skipping pydantic's 'For further information visit <url>' footer."""
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        try:
+            first = errors()[0]
+            field = ".".join(str(p) for p in first.get("loc", ()))
+            return f"{field}: {first['msg']}" if field else str(first["msg"])
+        except Exception:  # not a pydantic error after all: fall back to the text
+            pass
+    lines = [ln.strip() for ln in str(exc).strip().splitlines()
+             if ln.strip() and not ln.strip().startswith("For further information")]
+    return lines[-1] if lines else exc.__class__.__name__
 
 
 def level_name(v: Any) -> str:
@@ -131,7 +201,8 @@ def create_app(data_dir: Path, cfg: Config | None = None,
                 continue
             pending = len(ApprovalQueue(store, cfg).pending(cid))
             cards.append({"id": cid, "state": st, "pending": pending,
-                          "limitations": len(st.limitations)})
+                          "limitations": len(st.limitations),
+                          "support_unread": SupportStore(store).unread_for_coach(cid)})
         return tpl.TemplateResponse(request, "index.html", {"cards": cards, "as_of": d.isoformat()})
 
     @app.get("/client/{cid}", response_class=HTMLResponse)
@@ -145,6 +216,7 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         queue = ApprovalQueue(store, cfg)
         items = queue.items(cid)
         excluded = data_quality.assess(events, d, cfg).excluded_event_ids
+        support = SupportStore(store)
         series = weight_series(events, d, excluded, cfg.nutrition("tracking.weigh_ins_per_week")[0])
         markers = [{"date": c["date"].isoformat(), "label": f"{c['day_type']} {c['kcal_change']:+d} kcal"}
                    for c in review["macro_changes"]]
@@ -154,7 +226,10 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             "info": [i for i in items if i.status == "info"],
             "decided": [i for i in items if i.status in ("approved", "rejected", "modified")][-5:],
             "chart": weight_svg(series, markers), "series": series,
-            "chat": ChatStore(store).history(cid), "error": error, "notice": notice,
+            "chat": ChatStore(store, "coach").history(cid), "error": error, "notice": notice,
+            # read-only: what the client and Mr. J said to each other (owner default D1)
+            "client_chat": ChatStore(store, "client").history(cid),
+            "support": support.thread(cid), "support_unread": support.unread_for_coach(cid),
             "intake": recent_intake(events, d, st),
             "checkin_today": next((c for c in st.checkins_recent if c["date"] == d), None),
             "training_type": training_day_type(st.current_macros),
@@ -193,13 +268,10 @@ def create_app(data_dir: Path, cfg: Config | None = None,
                     notes: str = Form("")):
         from schemas.events import Source, make_event
         _, store = client(cid)
-        if hunger not in LEVELS or energy not in LEVELS:
-            return back(cid, as_of, "checkins", error="hunger and energy must be low, mid or high")
-        payload: dict[str, Any] = {"hunger": LEVELS[hunger], "energy": LEVELS[energy], "notes": notes.strip()}
-        if training_feel:
-            payload["training_feel"] = training_feel
-        if sleep_hours:
-            payload["sleep_hours"] = float(sleep_hours)
+        try:
+            payload = checkin_payload(hunger, energy, training_feel, sleep_hours, notes)
+        except ValueError as exc:
+            return back(cid, as_of, "checkins", error=str(exc))
         try:
             # dated by the page's "As of" date; saving again for that date replaces the entry
             store.append([make_event(cid, "weekly_checkin", day(as_of), payload, Source.coach)])
@@ -213,17 +285,11 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         from schemas.events import Source, make_event
         _, store = client(cid)
         try:
-            w = float(weight)
-            if not math.isfinite(w):
-                raise ValueError("weight must be a number")
-            if unit not in ("lb", "kg"):
-                raise ValueError("unit must be lb or kg")
-            store.append([make_event(cid, "weigh_in", _when(when, as_of),
-                                     {"weight": w, "unit": unit,
-                                      "conditions": conditions.strip() or "unspecified"}, Source.coach)])
+            payload = weigh_in_payload(weight, unit, conditions)
+            store.append([make_event(cid, "weigh_in", _when(when, as_of), payload, Source.coach)])
         except ValueError as exc:
-            return back(cid, as_of, "weigh-in", error=f"weigh-in not saved: {str(exc).splitlines()[-1].strip()}")
-        return back(cid, as_of, "weigh-in", notice=f"Weigh-in saved: {w:g} {unit}")
+            return back(cid, as_of, "weigh-in", error=f"weigh-in not saved: {error_text(exc)}")
+        return back(cid, as_of, "weigh-in", notice=f"Weigh-in saved: {payload['weight']:g} {unit}")
 
     @app.post("/client/{cid}/macros-hit")
     async def macros_hit(request: Request, cid: str):
@@ -231,24 +297,16 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         _, store = client(cid)
         form = await request.form()
         as_of = str(form.get("as_of", ""))
-        hit = form.get("hit") == "yes"
-        off_by = {}
-        if not hit:
-            for name, key in MACRO_KEYS.items():
-                v = str(form.get(f"off_{name}", "") or "")
-                if v:
-                    off_by[key] = float(v)
         when = _when(str(form.get("when", "")), as_of)
-        day_type = "non_training" if form.get("non_training") else training_day_type(
-            build_state(store.read(cid), when, cfg).current_macros)
         try:
-            ev = make_event(cid, "macro_adherence_logged", when,
-                            {"date": when, "hit": hit, "off_by": off_by, "day_type": day_type},
-                            Source.coach)
+            payload = adherence_payload(
+                when, form.get("hit") == "yes",
+                {name: str(form.get(f"off_{name}", "") or "") for name in MACRO_KEYS},
+                bool(form.get("non_training")), build_state(store.read(cid), when, cfg).current_macros)
+            ev = make_event(cid, "macro_adherence_logged", when, payload, Source.coach)
             store.append([ev])
         except ValueError as exc:
-            msg = str(exc).split("\n")[-1] if "validation" in str(exc).lower() else str(exc)
-            return back(cid, as_of, "macros", error=f"not saved: {msg.strip()}")
+            return back(cid, as_of, "macros", error=f"not saved: {error_text(exc)}")
         return back(cid, as_of, "macros", notice="Daily target logged")
 
     @app.post("/client/{cid}/import-mfp")
@@ -277,7 +335,7 @@ def create_app(data_dir: Path, cfg: Config | None = None,
         from llm.attachments import AttachmentError, to_block
         from llm.coach import open_session
         ref, store = client(cid)
-        chats = ChatStore(store)
+        chats = ChatStore(store, "coach")
         history = [{"role": m["role"], "content": m["content"]} for m in chats.history(cid)]
         try:
             blocks = [to_block(n, b) for n, b in attachments or []]
@@ -331,8 +389,26 @@ def create_app(data_dir: Path, cfg: Config | None = None,
     @app.post("/client/{cid}/chat/clear")
     def clear_chat(cid: str, as_of: str = Form("")):
         _, store = client(cid)
-        ChatStore(store).clear(cid)
+        ChatStore(store, "coach").clear(cid)
         return back(cid, as_of, "chat")
+
+    @app.post("/client/{cid}/support/reply")
+    def support_reply(cid: str, as_of: str = Form(""), message: str = Form("")):
+        _, store = client(cid)
+        try:
+            text = check_message(message)
+        except ValueError as exc:
+            return back(cid, as_of, "support", error=f"reply not sent: {exc}")
+        support = SupportStore(store)
+        support.add(cid, "coach", text)
+        support.mark_read(cid)  # replying means the coach has read the thread
+        return back(cid, as_of, "support", notice="Reply sent")
+
+    @app.post("/client/{cid}/support/read")
+    def support_read(cid: str, as_of: str = Form("")):
+        _, store = client(cid)
+        SupportStore(store).mark_read(cid)
+        return back(cid, as_of, "support")
 
     @app.get("/onboard", response_class=HTMLResponse)
     def onboard_form(request: Request):

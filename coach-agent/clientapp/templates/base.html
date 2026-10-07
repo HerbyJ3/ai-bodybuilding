@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mr. J{% endblock %}</title>
+  <link rel="icon" href="{{ asset('logo') }}">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/app-static/client.css">
+</head>
+<body class="client-app">
+  <header class="topbar">
+    <a class="brand" href="/"><img src="{{ asset('logo') }}" alt="" width="32" height="32"><span>Mr. J</span></a>
+    {% block topbar %}{% endblock %}
+  </header>
+  {% block nav %}{% endblock %}
+  <main>{% block main %}{% endblock %}</main>
+  <script src="/app-static/client.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

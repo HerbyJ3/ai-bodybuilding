@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="card pick">
+  <h1>Who's checking in?</h1>
+  <p class="muted small">Pick your name to open your page. (This is a local test version, so there's no login yet.)</p>
+  {% if not clients %}<p class="muted">No clients yet. Your coach needs to add you first.</p>{% endif %}
+  <ul class="pick-list">{% for c in clients %}<li><a href="/c/{{ c }}">{{ c }}<span aria-hidden="true">›</span></a></li>{% endfor %}</ul>
+</section>
+{% endblock %}

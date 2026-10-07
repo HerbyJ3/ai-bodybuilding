@@ -13,8 +13,21 @@
 - [x] Clients **talk to Mr. J directly**; clients message the coach **only for support issues**
 - [x] First client features: weigh-in, Daily Target, check-in, approved targets, weight chart, coach messages
 - [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
+- [ ] Form-forgery (CSRF) protection on both apps: any web page open in the browser can post to the local apps today (adds events, spends API credit on chat). Add with logins, before hosting
 - [ ] Mr. J cost control for client chat (who pays, per-client limits)
 - [ ] Path: local client-view prototype → hosted beta (2–3 clients) → installable phone web app → App Store / Google Play if the beta works
+- [x] **Local client-view prototype** (BUILD_SPEC §15): built (`coach client-app`), not hosted
+- [ ] Can the coach read the client ↔ Mr. J chat in the admin view? Prototype default: yes, read-only, and the client app says so
+- [ ] Do coach notes on approved decisions show to the client? Prototype default: no, the client sees the change and date only (notes may be internal)
+- [ ] Should Mr. J flag support topics to the coach automatically? Prototype default: no, Mr. J only tells the client to use "Message your coach"
+
+Found while building the prototype (owner decisions 2026-10-07):
+- [x] **Client weight chart shows every weigh-in**, including ones data quality flags; the flags and exclusions stay on the coach chart only
+- [x] **Training-feel labels for clients:** "Rough / Good / Great" (stored values unchanged; the dashboard keeps its labels)
+- [x] **Message times show in the viewer's local time** (stored in UTC; both apps)
+- [x] **What client Mr. J may see:** limitations **stay** (hard constraints). Check-in notes the coach typed are left out of the client app's prompt; the client's own check-in notes stay
+- [ ] Engine's short reason for each change is still given to client Mr. J (owner did not ask to hide it; revisit if it reads as internal)
+- [ ] **Before hosting** (with logins): client ids must not be real names, and the client pick page must sit behind logins; the confirmation banner text comes from the web address today, switch to fixed message codes; history-review findings still steer which book passages client Mr. J looks up (low risk, findings themselves are not shown)
 
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients

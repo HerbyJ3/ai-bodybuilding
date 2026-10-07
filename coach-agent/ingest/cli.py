@@ -178,7 +178,8 @@ def queue_modify(proposal_id: str, value: str = typer.Option(..., help="JSON val
     _decide(proposal_id, "modified", note, value, db)
 
 
-def _session(client_id: str, as_of: str, db: Path, offline: bool = False):
+def _session(client_id: str, as_of: str, db: Path, offline: bool = False, audience: str = "client"):
+    """`audience="client"`: Mr. J writes for the client (check-in); "coach": the owner talks to him."""
     from llm.coach import open_session
     llm = None
     if not offline:
@@ -187,7 +188,7 @@ def _session(client_id: str, as_of: str, db: Path, offline: bool = False):
         llm = ClaudeClient(llm_settings())
     try:
         day = date.fromisoformat(as_of) if as_of else date.today()
-        return open_session(EventStore(db), load_config(), client_id, day, llm)
+        return open_session(EventStore(db), load_config(), client_id, day, llm, audience=audience)
     except PermissionError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -212,7 +213,7 @@ def checkin_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-
 def chat_cmd(client_id: str, as_of: str = typer.Argument(None, help="YYYY-MM-DD, default today"),
            db: Path = DEFAULT_DB) -> None:
     """Chat with Mr. J about this client (empty line or Ctrl-D to quit)."""
-    session = _session(client_id, as_of, db)
+    session = _session(client_id, as_of, db, audience="coach")  # the coach is the one chatting
     while True:
         try:
             text = input("you> ").strip()
@@ -238,6 +239,23 @@ def dashboard_cmd(data_dir: Path = typer.Option(Path("data"), help="folder holdi
     if open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     uvicorn.run(create_app(data_dir), host="127.0.0.1", port=port, log_level="warning")
+
+
+@app.command("client-app")
+def client_app_cmd(data_dir: Path = typer.Option(Path("data"), help="folder holding client databases"),
+                   port: int = 8766, open_browser: bool = typer.Option(True, "--open/--no-open")) -> None:
+    """Open the local client app prototype (runs on this computer only; no logins yet)."""
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from clientapp.app import create_client_app
+    url = f"http://127.0.0.1:{port}"
+    typer.echo(f"Mr. J client app: {url}  (Ctrl-C to stop)")
+    if open_browser:
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    uvicorn.run(create_client_app(data_dir), host="127.0.0.1", port=port, log_level="warning")
 
 
 @app.command("fetch-assets")
