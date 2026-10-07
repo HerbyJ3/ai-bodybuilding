@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Mr. J · {{ cid }}{% endblock %}
+{% block main %}
+{# Stub template (backend-dev); frontend-dev replaces it. #}
+<h1>Hi {{ cid }} <span class="muted small">{{ today }}</span></h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+<section class="card" id="weigh-in">
+  <h2>Weigh-in</h2>
+  <form method="post" action="/c/{{ cid }}/weigh-in">
+    <label>Weight <input name="weight" inputmode="decimal" required></label>
+    <select name="unit"><option value="lb">lb</option><option value="kg">kg</option></select>
+    <label>Conditions <input name="conditions" placeholder="optional"></label>
+    <label>Date <input type="date" name="when" max="{{ today }}" value="{{ today }}"></label>
+    <button>Save weigh-in</button>
+  </form>
+</section>
+
+<section class="card" id="daily-target">
+  <h2>Did you hit your targets?</h2>
+  <form method="post" action="/c/{{ cid }}/daily-target">
+    <label><input type="radio" name="hit" value="yes" checked> Yes</label>
+    <label><input type="radio" name="hit" value="no"> No</label>
+    {% for name in ["protein", "carbs", "fat"] %}
+    <label>{{ name|capitalize }} off by <select name="off_{{ name }}"><option value="">–</option>
+      {% for g in off_by_choices %}<option value="{{ g }}">{{ "%+d"|format(g) }} g</option>{% endfor %}</select></label>
+    {% endfor %}
+    <label><input type="checkbox" name="non_training" value="1"> Non-training day</label>
+    <label>Date <input type="date" name="when" max="{{ today }}" value="{{ today }}"></label>
+    <button>Save</button>
+  </form>
+</section>
+
+<section class="card" id="checkin">
+  {% set ci = checkin_today or {} %}{% set lv = {1: "low", 3: "mid", 5: "high"} %}
+  <h2>Check-in</h2>
+  {% if checkin_today %}<p class="small muted">Saved for today. Save again to update it.</p>{% endif %}
+  <form method="post" action="/c/{{ cid }}/checkin">
+    {% macro dropdown(label, name, options, current, required=false) %}
+    <label>{{ label }} <select name="{{ name }}"{% if required %} required{% endif %}><option value="">–</option>
+      {% for value, text in options %}<option value="{{ value }}"{% if current is not none and current|string == value|string %} selected{% endif %}>{{ text }}</option>{% endfor %}
+    </select></label>
+    {% endmacro %}
+    {{ dropdown("Hunger", "hunger", [("low", "Low"), ("mid", "Mid"), ("high", "High")], lv.get(ci.hunger), true) }}
+    {{ dropdown("Energy", "energy", [("low", "Low"), ("mid", "Mid"), ("high", "High")], lv.get(ci.energy), true) }}
+    {{ dropdown("Training feels", "training_feel", [("crap", "Crap"), ("good", "Good"), ("fantastic", "Fantastic")], ci.training_feel) }}
+    {% set hours = [] %}{% for h in range(8, 0, -1) %}{% set _ = hours.append((h, h ~ " hours")) %}{% endfor %}
+    {{ dropdown("Sleep", "sleep_hours", hours, ci.sleep_hours|int if ci.sleep_hours else none) }}
+    <label>Notes <input name="notes" value="{{ ci.notes or '' }}" placeholder="optional"></label>
+    <button>Save check-in</button>
+  </form>
+</section>
+
+<section class="card" id="targets">
+  <h2>Your targets</h2>
+  {% if training_type %}<p class="small muted">Training days use the {{ training_type|replace("_", " ") }} targets.</p>{% endif %}
+  <table><thead><tr><th>Day</th><th>Protein</th><th>Carbs</th><th>Fat</th><th>Calories</th></tr></thead><tbody>
+  {% for t in targets %}<tr><td>{{ t.day_type|replace("_", " ") }}</td><td>{{ t.protein_g }} g</td><td>{{ t.carb_g }} g</td><td>{{ t.fat_g }} g</td><td>{{ t.kcal }}</td></tr>{% endfor %}
+  </tbody></table>
+  <h3>Changes from your coach</h3>
+  {% if not changes %}<p class="muted">No changes yet.</p>{% endif %}
+  <ul class="changes">{% for c in changes %}<li>{{ c.date }}: {{ (c.action or "change")|replace("_", " ") }}{% if c.target %} ({{ c.target|replace("_", " ") }}){% endif %}</li>{% endfor %}</ul>
+</section>
+
+<section class="card" id="chart">
+  <h2>Weight <span class="muted small">{% if state.phase %}{{ state.phase.phase }}{% endif %}</span></h2>
+  {{ chart|safe }}
+  <script type="application/json" id="weight-data">{{ series|tojson }}</script>
+  <details><summary>Table view</summary><table><thead><tr><th>Date</th><th>Weight (lb)</th><th>7-day average</th></tr></thead><tbody>
+  {% for r in series|reverse %}<tr><td>{{ r.date }}</td><td>{{ r.weight }}</td><td>{{ r.avg if r.avg is not none else "–" }}</td></tr>{% endfor %}
+  </tbody></table></details>
+</section>
+
+<section class="card chat" id="chat">
+  <h2>Mr. J</h2>
+  <div class="messages">{% for m in chat %}<div class="msg {{ m.role }}"><div class="msg-body">{{ m.content }}</div></div>{% endfor %}</div>
+  <form method="post" action="/c/{{ cid }}/chat">
+    <textarea name="message" rows="3" maxlength="4000" required></textarea>
+    <button>Send</button>
+  </form>
+</section>
+
+<section class="card" id="support">
+  <h2>Messages to your coach</h2>
+  <div class="messages">{% for m in support %}<div class="msg {{ m.sender }}"><span class="small muted">{{ "You" if m.sender == "client" else "Coach" }} · {{ m.created_at[:16]|replace("T", " ") }}</span><div class="msg-body">{{ m.content }}</div></div>{% endfor %}</div>
+  <form method="post" action="/c/{{ cid }}/support">
+    <textarea name="message" rows="3" maxlength="4000" required></textarea>
+    <button>Send to coach</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/chart.js"></script>{% endblock %}

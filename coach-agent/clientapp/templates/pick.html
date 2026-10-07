@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="card">
+  <h1>Who's checking in?</h1>
+  {% if not clients %}<p class="muted">No clients yet.</p>{% endif %}
+  <ul>{% for c in clients %}<li><a href="/c/{{ c }}">{{ c }}</a></li>{% endfor %}</ul>
+</section>
+{% endblock %}
