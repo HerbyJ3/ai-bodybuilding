@@ -151,7 +151,7 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
         chats = ChatStore(store, "client")
         history = [{"role": m["role"], "content": m["content"]} for m in chats.history(cid)]
         try:
-            session = open_session(store, cfg, cid, today(), llm_factory(), audience="client",
+            session = open_session(store, cfg, cid, today(), llm_factory(), audience="client_app",
                                    history=history)
             reply = session.ask(text)
         except Exception as exc:  # missing API key, network, no consent: show it, store nothing

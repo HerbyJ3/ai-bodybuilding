@@ -6,10 +6,12 @@ from types import SimpleNamespace as NS
 import pytest
 
 from approvals.queue import ApprovalQueue
+from engine import history_review
 from ingest.onboarding import load_onboarding_config, onboard
 from llm import prompt_builder, retrieval
 from llm.client import REFUSAL_TEXT, ClaudeClient
-from llm.coach import CHECKIN_REQUEST, CLIENT_AUDIENCE, COACH_AUDIENCE, open_session
+from llm.coach import (CHECKIN_REQUEST, CLIENT_AUDIENCE, CLIENT_GENERIC_AUDIENCE, COACH_AUDIENCE,
+                       open_session)
 from llm.settings import llm_settings
 from llm.tools import TOOLS, ToolError, run_tool
 from store.event_store import EventStore
@@ -112,28 +114,34 @@ def _audience_session(store, cfg, audience):
 
 
 def test_client_audience_block_only_in_client_prompt(store, cfg):
+    app = _audience_session(store, cfg, "client_app").system
     client = _audience_session(store, cfg, "client").system
     coach = _audience_session(store, cfg, "coach").system
-    assert client.endswith(CLIENT_AUDIENCE) and CLIENT_AUDIENCE not in coach
-    assert coach.endswith(COACH_AUDIENCE) and COACH_AUDIENCE not in client
-    assert _audience_session(store, cfg, "client").system == open_session(  # default is the client
+    assert app.endswith(CLIENT_AUDIENCE) and CLIENT_AUDIENCE not in coach and CLIENT_AUDIENCE not in client
+    assert client.endswith(CLIENT_GENERIC_AUDIENCE) and CLIENT_GENERIC_AUDIENCE not in coach
+    assert coach.endswith(COACH_AUDIENCE) and COACH_AUDIENCE not in client and COACH_AUDIENCE not in app
+    assert _audience_session(store, cfg, "client").system == open_session(  # default is "client"
         store, cfg, CID, AS_OF, ClaudeClient(llm_settings(), client=FakeAnthropic([]))).system
-    flat = " ".join(client.split())
-    for must in ("is the **client**", "Speak to them directly", "approved changes",
-                 "Never mention pending items", "coach reviews and decides plan changes",
-                 'use **"Message your coach"** in the app', "billing", "scheduling",
-                 "problems with the app", "account questions", "talk to their coach",
-                 "pain or an injury", "never say you will forward"):
-        assert must in flat, must
+    common = ("is the **client**", "Speak to them directly", "approved changes",
+              "Never mention pending items", "coach reviews and decides plan changes", "billing",
+              "scheduling", "account questions", "talk to their coach", "pain or an injury",
+              "never say you will forward")
+    flat_app, flat_client = " ".join(app.split()), " ".join(client.split())
+    for must in (*common, 'use **"Message your coach"** in the app', "problems with the app"):
+        assert must in flat_app, must
+    for must in (*common, "contact their coach directly"):
+        assert must in flat_client, must
+    for prompt in (client, coach):  # app wording only where there is an app
+        assert "Message your coach" not in prompt and "in the app" not in prompt
     with pytest.raises(ValueError):
         _audience_session(store, cfg, "public")
 
 
 def test_client_audience_keeps_system_guardrails(store, cfg):
-    client = _audience_session(store, cfg, "client").system
     template = prompt_builder.TEMPLATE_PATH.read_text(encoding="utf-8")
     hard = template[template.index("## Hard boundaries"):].replace("{{COACH_NAME}}", "Mr. J")
-    assert hard.strip() in client
+    for audience in ("client", "client_app"):
+        assert hard.strip() in _audience_session(store, cfg, audience).system, audience
 
 
 def test_client_prompt_shows_approved_change_but_not_pending(store, cfg):
@@ -150,11 +158,41 @@ def test_client_prompt_shows_approved_change_but_not_pending(store, cfg):
                           (seeded.proposal_id, CID, seeded.created_at.isoformat(), seeded.target,
                            seeded.model_dump_json()))
     assert [i.proposal.proposal_id for i in q.pending(CID)] == [seeded.proposal_id]
-    for audience in ("client", "coach"):
+    for audience in ("client", "coach", "client_app"):
         s = _audience_session(store, cfg, audience).system
-        assert "change: decrease_calories" in s and "coach_note: start Monday" in s
+        assert "change: decrease_calories" in s, audience
         assert "SEEDED-PENDING-RATIONALE" not in s and seeded.proposal_id not in s
         assert "add_sets" not in s and "volume.chest" not in s
+    for audience in ("client", "coach"):  # the coach reviews these drafts
+        assert "coach_note: start Monday" in _audience_session(store, cfg, audience).system
+    app = _audience_session(store, cfg, "client_app").system
+    assert "start Monday" not in app and "coach_note" not in app  # coach notes are private
+
+
+def test_client_app_prompt_drops_coach_only_text(store, cfg):
+    from schemas.events import make_event
+    q = ApprovalQueue(store, cfg)
+    q.refresh(CID, AS_OF)
+    [calorie] = q.pending(CID)
+    q.decide(calorie.proposal.proposal_id, "approved", "SYNTH-PRIVATE-DECISION-NOTE",
+             at=datetime(2026, 9, 28, 9, tzinfo=timezone.utc))
+    store.append([make_event(CID, "nutrition_targets_set", date(2026, 9, 27), {
+        "macros_by_day_type": {"moderate": {"protein_g": 201, "carb_g": 199, "fat_g": 61}},
+        "note": "SYNTH-PRIVATE-TARGET-NOTE"}, "coach")])
+    findings = [f"[{f['area']}] {f['finding']}" for f in history_review.review(
+        store.read(CID), _audience_session(store, cfg, "coach").state, cfg)["findings"]]
+    assert findings
+    for audience in ("coach", "client"):
+        s = _audience_session(store, cfg, audience).system
+        assert "SYNTH-PRIVATE-DECISION-NOTE" in s and "SYNTH-PRIVATE-TARGET-NOTE" in s
+        assert "history_review_findings:" in s
+    app = _audience_session(store, cfg, "client_app").system
+    assert "SYNTH-PRIVATE-DECISION-NOTE" not in app and "SYNTH-PRIVATE-TARGET-NOTE" not in app
+    assert "history_review_findings" not in app and "coach_note" not in app
+    assert not any(prompt_builder._scalar(f) in app for f in findings)
+    # the change itself and its date still reach the client
+    assert "change: decrease_calories" in app and "decided_on: 2026-09-28" in app
+    assert "date: 2026-09-27" in app and "protein_g: 201" in app
 
 
 def test_session_requires_consent(cfg):

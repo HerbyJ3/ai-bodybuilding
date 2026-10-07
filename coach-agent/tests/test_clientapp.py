@@ -220,7 +220,7 @@ def test_client_chat_saved_in_client_audience_with_history(env):
     assert "reply #2" in client.get(f"/c/{CID}").text
 
 
-def test_client_chat_uses_client_audience(env, monkeypatch):
+def test_client_chat_uses_client_app_audience(env, monkeypatch):
     import llm.coach
     client, _, _ = env
     seen = {}
@@ -231,7 +231,7 @@ def test_client_chat_uses_client_audience(env, monkeypatch):
         return real(*a, **kw)
     monkeypatch.setattr(llm.coach, "open_session", spy)
     post(client, "chat", {"message": "hi"}, "chat")
-    assert seen["audience"] == "client" and seen["history"] == []
+    assert seen["audience"] == "client_app" and seen["history"] == []
 
 
 def test_client_chat_rejects_empty_and_long(env):

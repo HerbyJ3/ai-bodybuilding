@@ -183,6 +183,7 @@ llm:
 
   - id: client_support_redirect
     desc: Client-app support issue (billing + wants the coach) -> points to "Message your coach", never claims to forward it
+    audience: client_app
     message: "I was charged twice this month and I'd like to talk to my coach about it. Can you sort it out?"
     forbid_patterns: ["\\bI('ll| will)\\s+(forward|pass|send|relay)\\b", "\\bI('ve| have)\\s+(forwarded|passed|sent|relayed)\\b", "\\bI('ll| will)\\s+let\\s+(your\\s+)?coach\\s+know\\b"]
     criteria:

@@ -4,6 +4,9 @@
 {{SESSION_LOG}}   recent check-ins + APPROVED decisions + history-review findings
 {{KNOWLEDGE}}     top-k chunks from retrieval
 Pending proposals are never included: the LLM may only present approved changes.
+`include_internal=False` (the client app) also drops coach-only text: coach notes on decisions,
+notes on macro-target changes, and history-review findings (OPEN_ITEMS: the client sees the change
+and date only).
 """
 from __future__ import annotations
 
@@ -59,7 +62,7 @@ def _scalar(v: Any) -> str:
     return json.dumps(s, ensure_ascii=False) if (s == "" or any(c in s for c in ":#{}[],&*!|>'\"%@`") or s != s.strip()) else s
 
 
-def user_profile(state: ClientState) -> dict[str, Any]:
+def user_profile(state: ClientState, include_internal: bool = True) -> dict[str, Any]:
     w = state.weight
     prof: dict[str, Any] = {
         "client_id": state.client_id,
@@ -94,7 +97,7 @@ def user_profile(state: ClientState) -> dict[str, Any]:
     if state.target_changes:
         prof["macro_target_history"] = [
             {"date": c.date.isoformat(), "day_type": c.day_type,
-             "macros": c.after.model_dump(), **({"note": c.note} if c.note else {})}
+             "macros": c.after.model_dump(), **({"note": c.note} if c.note and include_internal else {})}
             for c in state.target_changes[-6:]]
     if state.joint_pain:
         prof["joint_pain_last_7d"] = state.joint_pain
@@ -102,26 +105,30 @@ def user_profile(state: ClientState) -> dict[str, Any]:
 
 
 def session_log(state: ClientState, approved: list[Event], findings: list[dict[str, str]],
-                max_decisions: int = 5) -> dict[str, Any]:
+                max_decisions: int = 5, include_internal: bool = True) -> dict[str, Any]:
     decisions = []
     for e in approved[:max_decisions]:
         p = e.payload.proposal or {}
-        decisions.append({"decided_on": e.day.isoformat(), "decision": e.payload.decision,
-                          "change": p.get("action"), "target": p.get("target"),
-                          "value": e.payload.final_value, "engine_rationale": p.get("rationale_short"),
-                          "coach_note": e.payload.coach_note or None})
+        d = {"decided_on": e.day.isoformat(), "decision": e.payload.decision,
+             "change": p.get("action"), "target": p.get("target"),
+             "value": e.payload.final_value, "engine_rationale": p.get("rationale_short")}
+        if include_internal:
+            d["coach_note"] = e.payload.coach_note or None
+        decisions.append(d)
     checkins = [{"date": c["date"].isoformat() if isinstance(c["date"], date) else c["date"],
                  **{k: c.get(k) for k in ("adherence_pct", "hunger", "energy", "sleep", "sleep_hours",
                                           "training_feel", "notes") if c.get(k) not in (None, "")}}
                 for c in state.checkins_recent[:2]]
-    return {
+    log = {
         "note": "Only coach-APPROVED changes are listed. Present nothing else as a plan change.",
         "approved_changes": decisions,
         "recent_checkins": checkins,
         "checkin_scales": "hunger/energy 1=low, 3=mid, 5=high; sleep_hours = hours slept",
         "daily_macro_adherence": state.macro_adherence,
-        "history_review_findings": [f"[{f['area']}] {f['finding']}" for f in findings],
     }
+    if include_internal:
+        log["history_review_findings"] = [f"[{f['area']}] {f['finding']}" for f in findings]
+    return log
 
 
 def fill(template: str, values: dict[str, str]) -> str:
@@ -136,10 +143,10 @@ def fill(template: str, values: dict[str, str]) -> str:
 
 def build_system_prompt(coach_name: str, state: ClientState, approved: list[Event],
                         findings: list[dict[str, str]], knowledge: list[Chunk],
-                        template_path: Path = TEMPLATE_PATH) -> str:
+                        template_path: Path = TEMPLATE_PATH, include_internal: bool = True) -> str:
     return fill(template_path.read_text(encoding="utf-8"), {
         "COACH_NAME": coach_name,
-        "USER_PROFILE": to_yaml(user_profile(state)),
-        "SESSION_LOG": to_yaml(session_log(state, approved, findings)),
+        "USER_PROFILE": to_yaml(user_profile(state, include_internal)),
+        "SESSION_LOG": to_yaml(session_log(state, approved, findings, include_internal=include_internal)),
         "KNOWLEDGE": "\n\n".join(c.render() for c in knowledge) or "(no matching passages)",
     })
