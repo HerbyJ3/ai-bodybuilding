@@ -76,6 +76,7 @@ Defaults (confirm before M0, **[DECIDE]**):
 - **Tests:** pytest
 - **LLM provider:** **Claude** (Anthropic API), decided 2026-10-03. Keep it behind a single `llm/client.py` interface so it can be swapped
 - **Interface v1:** CLI (Typer), plus a **local coach dashboard** (FastAPI + Jinja, `coach dashboard`, bound to 127.0.0.1): clients, weight chart, history review, approval queue, and a saved coach ↔ Mr. J conversation per client (chat history is stored in the client's own SQLite file, table `chat_messages`; Mr. J is told he is talking to the coach). Graphics were made with Higgsfield; the app is not hosted there, so client data never leaves the machine except Mr. J's calls to Claude
+- **Client view (local prototype, in progress):** a separate phone-friendly client app (`clientapp/`, `coach client-app`, 127.0.0.1, its own port) where a client logs data, sees coach-approved targets and their weight chart, talks to Mr. J, and messages the coach for support. See §15. The coach dashboard above becomes the **coach/admin view** and keeps working
 
 ---
 
@@ -123,6 +124,8 @@ coach-agent/
 │   └── onboarding.py          ← mid-program onboarding (§13)
 ├── samples/                   ← synthetic sample clients (committed; never real data)
 ├── approvals/queue.py
+├── dashboard/                 ← coach/admin view (FastAPI + Jinja)
+├── clientapp/                 ← client view, local prototype (§15)
 ├── evals/scenarios.yaml
 ├── tests/
 └── data/                      ← gitignored; never commit client data
@@ -400,4 +403,37 @@ Onboarding exists mainly to compare a client against their own history and find 
 **Findings:** plain-language lines derived deterministically from the above, which the LLM layer can explain later.
 
 CLI: `coach review <client_id> <as_of> [--full]`
+
+---
+
+## 15. Client web app — local prototype
+
+Owner decisions 2026-10-05 (see OPEN_ITEMS "Client web app"). Path: **local prototype (this section)** → hosted beta → installable phone web app → app stores. The prototype has no hosting and no real logins.
+
+**Shape**
+- Separate FastAPI + Jinja app in `clientapp/` (`create_client_app(data_dir, cfg, llm_factory, today)`), started with `coach client-app --data-dir <dir> [--port 8766] [--no-open]`, bound to 127.0.0.1. It has **no admin routes**, so it can later be hosted on its own. It reuses `dashboard/store.py`, `dashboard/charts.py` and the dashboard helpers; it does not change engine rules.
+- Entry point: `/` lists client ids to pick (local stand-in for a login); each client's pages live under `/c/{client_id}`. Replaced by real logins before the hosted beta.
+- Mobile-first layout (single column, large tap targets, works at 360 px wide); same palette and light/dark rules as the dashboard.
+- Dates come from the server's "today" (no "As of" picker for clients).
+
+**Client features (first set)**
+1. **Weigh-in**: weight, unit, optional conditions; date defaults to today (no future dates).
+2. **Daily Target**: "Did you hit your targets?" yes/no, off-by dropdowns per macro (same choices as the dashboard), **non-training-day checkbox**; date defaults to today.
+3. **Check-in**: dropdowns only (hunger, energy, training feel, sleep) plus optional notes; **no date field**, it is dated today, and saving again the same day replaces it (latest wins).
+4. **Your targets**: current macro targets per day type (`ClientState.current_macros`) and the list of approved/modified decisions (`ApprovalQueue.approved`) in plain words. **Never** pending, rejected, superseded or info items, and never queue internals.
+5. **Weight chart**: daily readings + 7-day average with table view (same chart code).
+6. **Mr. J chat**: `open_session(audience="client")`; Mr. J presents only approved changes and sends support issues to the coach. Saved per client, separate from the coach ↔ Mr. J chat.
+7. **Messages to coach** (support only): a plain message thread with the coach. No AI in this thread.
+
+All client-entered events use `Source.client`. Validation and "latest wins per day" are the same as the dashboard.
+
+**Storage** (same per-client SQLite file, not events; these are not engine inputs)
+- `chat_messages` gains an `audience` column (`coach` | `client`, existing rows = `coach`). The coach session loads only `coach` rows, the client session only `client` rows; "clear chat" only clears its own audience.
+- New `support_messages` table: `id, client_id, created_at, sender (client|coach), content, read_at`.
+
+**Coach/admin view changes**
+- Client page: a "Support messages" card to read and reply; an unread count on the client list.
+- Client-logged data appears in the existing tables and chart as usual (no other admin changes).
+
+**Out of scope for the prototype:** hosting, logins/passwords, encryption, push notifications, file uploads from clients, cost limits on client chat (all listed in OPEN_ITEMS before the hosted beta).
 

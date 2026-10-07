@@ -18,6 +18,7 @@ One page for every sub-agent. It replaces exploring the repo: read this, then **
 | Approval queue | `approvals/queue.py` | backend-dev |
 | Mr. J (LLM) | `llm/` (client.py = only Claude code, prompt_builder, retrieval, tools, attachments, coach) | ai-engineer |
 | Dashboard | `dashboard/app.py` (routes) — backend-dev; `dashboard/templates/`, `dashboard/static/` — frontend-dev | |
+| Client app (local prototype, BUILD_SPEC §15) | `clientapp/app.py` (routes) — backend-dev; `clientapp/templates/`, `clientapp/static/` — frontend-dev | |
 | Graphics | `dashboard/static/assets.json` (+ local copies via `coach fetch-assets`) | graphic-artist |
 | Evals | `evals/scenarios.yaml`, `evals/run.py` (`coach eval [--llm]`) | ai-engineer / qa-tester |
 | Tests | `tests/` (pytest) | qa-tester (+ whoever changes code) |
@@ -51,6 +52,7 @@ Browser checks: Playwright with Chromium at `/opt/pw-browsers/chromium` (cloud s
 ## Current state (keep updated — project-manager)
 - Milestones M0–M9 built; dashboard, MyFitnessPal import, check-ins, Daily Target, chat uploads merged (PRs #1–#5).
 - Owner decisions: provider Claude; coach name Mr. J; calm/supportive voice; 100 kcal/day step cap; minimum data = weigh-ins + macro targets; cardio lever before calories; book macro-cut order; cold start deferred.
+- Client web app (owner 2026-10-05): dashboard = coach/admin view; clients get their own app. **In progress: local client-view prototype** (BUILD_SPEC §15).
 - Open: DB encryption; live API checks (`coach checkin`, `coach eval --llm`) with the owner's key; provisional values in `OPEN_ITEMS.md`.
 
 ## Hand-off format (what each agent returns)

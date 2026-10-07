@@ -15,6 +15,10 @@
 - [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
 - [ ] Mr. J cost control for client chat (who pays, per-client limits)
 - [ ] Path: local client-view prototype → hosted beta (2–3 clients) → installable phone web app → App Store / Google Play if the beta works
+- [ ] **Local client-view prototype** (BUILD_SPEC §15): in progress
+- [ ] Can the coach read the client ↔ Mr. J chat in the admin view? Prototype default: yes, read-only, and the client app says so
+- [ ] Do coach notes on approved decisions show to the client? Prototype default: no, the client sees the change and date only (notes may be internal)
+- [ ] Should Mr. J flag support topics to the coach automatically? Prototype default: no, Mr. J only tells the client to use "Message your coach"
 
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
