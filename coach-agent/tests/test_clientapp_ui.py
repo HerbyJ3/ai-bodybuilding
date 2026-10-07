@@ -263,3 +263,20 @@ def test_diary_day_hides_coach_typed_checkin_notes(env):
                                       {"hunger": 3, "energy": 3, "notes": "SYNTH-COACH-DAY-NOTE"}, Source.coach)])
     html = client.get(f"/c/{CID}?day=2026-09-21").text
     assert "Hunger Mid, energy Mid" in html and "SYNTH-COACH-DAY-NOTE" not in html
+
+
+def test_settings_menu_offers_looks_and_light_dark(env):
+    client, _, _ = env
+    html = client.get(f"/c/{CID}").text
+    panel = html.split('<details class="settings">')[1].split("</details>")[0]
+    for look in ("classic", "studio-calm", "night-session", "retro-84"):
+        assert f'name="style" value="{look}"' in panel, look
+    assert "Retro &#39;84" in panel or "Retro '84" in panel
+    for mode in ("auto", "light", "dark"):
+        assert f'name="mode" value="{mode}"' in panel
+    assert "Saved on this device only" in panel
+    # fonts for a look are fetched only after a client picks it (no stylesheet link up front)
+    assert '<link rel="stylesheet" href="https://fonts.googleapis.com' not in html
+    css = client.get("/app-static/styles.css").text
+    for look in ("studio-calm", "night-session", "retro-84"):
+        assert f'html:root[data-style="{look}"] {{' in css, look

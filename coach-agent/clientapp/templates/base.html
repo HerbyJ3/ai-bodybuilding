@@ -8,9 +8,19 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/app-static/client.css">
   <link rel="stylesheet" href="/app-static/styles.css">
+  <script>/* fonts for each look come from Google Fonts, fetched only when a client picks that look */
+    window.mrjFonts = function (s) {
+      var f = {"studio-calm": "Fraunces:wght@600&family=Inter:wght@400;600",
+               "night-session": "Barlow+Condensed:wght@600&family=Inter:wght@400;600",
+               "retro-84": "Orbitron:wght@700&family=Space+Grotesk:wght@400;600"}[s];
+      if (!f || document.getElementById("font-" + s)) return;
+      var l = document.createElement("link"); l.id = "font-" + s; l.rel = "stylesheet";
+      l.href = "https://fonts.googleapis.com/css2?family=" + f + "&display=swap";
+      document.head.appendChild(l);
+    };</script>
   <script>/* apply the saved look before the page paints (per device; nothing leaves the browser) */
     try { var s = localStorage.getItem("mrj-style"), m = localStorage.getItem("mrj-mode");
-      if (s && s !== "classic") document.documentElement.dataset.style = s;
+      if (s && s !== "classic") { document.documentElement.dataset.style = s; window.mrjFonts && mrjFonts(s); }
       if (m === "light" || m === "dark") document.documentElement.dataset.theme = m; } catch (e) {}</script>
 </head>
 <body class="client-app">
@@ -27,7 +37,7 @@
               <span class="swatch swatch-{{ value }}" aria-hidden="true"></span><span>{{ label }}<br><span class="small muted">{{ note }}</span></span></label>
             {% endfor %}
           </fieldset>
-          <fieldset class="mode-set"><legend>Light or dark</legend>
+          <fieldset class="mode-set"><legend>Light or dark <span class="small muted">(Classic look)</span></legend>
             <label><input type="radio" name="mode" value="auto" checked> Match my device</label>
             <label><input type="radio" name="mode" value="light"> Light</label>
             <label><input type="radio" name="mode" value="dark"> Dark</label>

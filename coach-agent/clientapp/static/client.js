@@ -67,7 +67,8 @@ if (dayInput) dayInput.addEventListener("change", () => { if (dayInput.value) da
   panel.querySelectorAll('input[name="style"]').forEach(r => {
     r.checked = r.value === style;
     r.addEventListener("change", () => {
-      if (r.value === "classic") delete root.dataset.style; else root.dataset.style = r.value;
+      if (r.value === "classic") delete root.dataset.style;
+      else { root.dataset.style = r.value; if (window.mrjFonts) window.mrjFonts(r.value); }
       save("mrj-style", r.value);
     });
   });

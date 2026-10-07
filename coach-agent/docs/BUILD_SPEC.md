@@ -428,6 +428,7 @@ Owner decisions 2026-10-05 (see OPEN_ITEMS "Client web app"). Path: **local prot
 5. **Weight chart**: daily readings + 7-day average with table view (same chart code). Shows **every** weigh-in the client logged; data-quality exclusions apply to the coach chart only.
 6. **Mr. J chat**: `open_session(audience="client_app")` (see "Mr. J audiences" below); to the client, **Mr. J is their coach**; he presents only approved changes as his plan and points support issues to "Contact support". Saved per client, separate from the coach ↔ Mr. J chat. The chat shows a notice that messages are sent to Claude (Anthropic) to answer.
 7. **Contact support** (support only): a plain message thread with the human coach behind the scenes, who appears to the client only as "Support". No AI in this thread.
+8. **Settings** (⚙ in the header): **Look** = Classic (default), Studio Calm, Night Session, Retro '84 (styles designed by the graphic artist with Higgsfield mockups, 2026-10-07; tokens in `clientapp/static/styles.css`), and **Light or dark** (Classic look only). Saved in the browser on that device only; a look's Google Fonts are fetched only when it is picked.
 
 Message times are stored in UTC and shown in the viewer's local time (both apps).
 

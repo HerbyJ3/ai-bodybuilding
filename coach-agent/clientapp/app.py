@@ -33,6 +33,9 @@ HERE = Path(__file__).resolve().parent
 # Looks a client can pick in Settings (value, label, one-line note); CSS lives in static/styles.css.
 CLIENT_STYLES: list[tuple[str, str, str]] = [
     ("classic", "Classic", "Calm slate and sand (default)"),
+    ("studio-calm", "Studio Calm", "Warm paper and navy. Quiet, light and easy on the eyes."),
+    ("night-session", "Night Session", "Deep navy with sand highlights. Calm and focused, great at night."),
+    ("retro-84", "Retro '84", "Neon sunset and grid lines. A fun throwback to the 80s."),
 ]
 
 
