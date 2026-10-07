@@ -16,16 +16,22 @@ PAD_L, PAD_R, PAD_T, PAD_B = 48, 64, 16, 32
 
 
 def weight_series(events: list[Event], as_of: date, excluded: set[str], min_n: int,
-                  days: int = 120) -> list[dict[str, Any]]:
-    """Daily readings (last reading per day) + trailing 7-day average (needs min_n readings)."""
+                  days: int = 120, avg_excluded: set[str] | frozenset[str] = frozenset()) -> list[dict[str, Any]]:
+    """Daily readings (last reading per day) + trailing 7-day average (needs min_n readings).
+    `excluded` readings are left out entirely; `avg_excluded` readings are drawn but kept out of
+    the average (the client chart shows every weigh-in without a bad one skewing the trend)."""
     start = as_of - timedelta(days=days)
     daily: dict[date, float] = {}
+    clean: dict[date, float] = {}
     for e in events:
         if e.type == "weigh_in" and e.event_id not in excluded and start <= e.day <= as_of:
-            daily[e.day] = round(to_lb(e.payload.weight, e.payload.unit), 1)
+            w = round(to_lb(e.payload.weight, e.payload.unit), 1)
+            daily[e.day] = w
+            if e.event_id not in avg_excluded:
+                clean[e.day] = w  # the average uses the day's last unflagged reading
     out = []
     for d in sorted(daily):
-        window = [w for dd, w in daily.items() if d - timedelta(days=6) <= dd <= d]
+        window = [w for dd, w in clean.items() if d - timedelta(days=6) <= dd <= d]
         avg = round(sum(window) / len(window), 1) if len(window) >= min_n else None
         out.append({"date": d.isoformat(), "weight": daily[d], "avg": avg})
     return out

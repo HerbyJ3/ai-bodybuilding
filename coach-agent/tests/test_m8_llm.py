@@ -318,3 +318,47 @@ def test_client_app_prompt_keeps_client_checkin_notes_but_not_coach_ones(store, 
         assert "SYNTH-CLIENT-CHECKIN-NOTE" in s and "SYNTH-COACH-CHECKIN-NOTE" in s
     # limitations stay in every prompt: they are hard constraints (owner decision 2026-10-07)
     assert "limitations:" in app
+
+
+def test_logging_gaps_lists_missing_days_in_last_week():
+    from schemas.events import make_event
+    as_of = date(2026, 10, 7)
+    events = [make_event(CID, "weigh_in", date(2026, 10, 7), {"weight": 190, "unit": "lb", "conditions": "x"}),
+              make_event(CID, "weigh_in", date(2026, 10, 5), {"weight": 191, "unit": "lb", "conditions": "x"}),
+              make_event(CID, "weekly_checkin", date(2026, 10, 6), {"hunger": 3, "energy": 3}),
+              make_event(CID, "macro_adherence_logged", date(2026, 10, 6),
+                         {"date": date(2026, 10, 6), "hit": True, "off_by": {}, "day_type": "moderate"}),
+              make_event(CID, "weigh_in", date(2026, 9, 20), {"weight": 195, "unit": "lb", "conditions": "x"})]
+    g = prompt_builder.logging_gaps(events, as_of, 7)
+    assert g["window"].startswith("2026-10-01 to 2026-10-07")
+    assert g["missing_days"]["weigh_in"] == ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-06"]
+    assert g["missing_days"]["check_in"] == ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04",
+                                             "2026-10-05", "2026-10-07"]
+    assert "2026-10-06" not in g["missing_days"]["daily_target"]
+    assert g["days_with_nothing_logged"] == ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"]
+
+
+def test_client_prompts_get_logging_gaps_and_estimating_rule(store, cfg):
+    for audience in ("client_app", "client", "coach"):
+        s = _audience_session(store, cfg, audience).system
+        assert "logging_this_week:" in s and "missing_days:" in s, audience
+    for audience in ("client_app", "client"):
+        flat = " ".join(_audience_session(store, cfg, audience).system.split())
+        assert "name the missing days plainly" in flat
+        assert "say clearly that you are estimating from the information they gave" in flat
+
+
+def test_cardio_event_ids_unchanged_when_new_fields_empty():
+    import json
+    import uuid
+
+    from schemas.events import EVENT_NAMESPACE, make_event
+    d = date(2026, 9, 1)
+    payload = {"date": d, "modality": "walk", "minutes": 30.0, "intensity": "low", "est_kcal": None}
+    e = make_event(CID, "cardio_logged", d, payload)
+    old_canonical = json.dumps({"date": "2026-09-01", "modality": "walk", "minutes": 30.0,
+                                "intensity": "low", "est_kcal": None}, sort_keys=True)
+    expected = uuid.uuid5(EVENT_NAMESPACE, f"{CID}|cardio_logged|{e.timestamp.isoformat()}|{old_canonical}")
+    assert e.event_id == str(expected)  # re-importing older cardio CSVs never duplicates
+    with_incline = make_event(CID, "cardio_logged", d, {**payload, "incline_pct": 5, "speed_mph": 2.0})
+    assert with_incline.event_id != e.event_id

@@ -5,7 +5,7 @@ import json
 import uuid
 from datetime import date, datetime, time, timezone
 from enum import Enum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -113,6 +113,10 @@ class CardioLogged(_Payload):
     minutes: float = Field(ge=0)
     intensity: Literal["low", "mod", "high"]
     est_kcal: float | None = Field(default=None, ge=0)
+    incline_pct: float | None = Field(default=None, ge=0, le=30)  # treadmill incline walking
+    speed_mph: float | None = Field(default=None, gt=0, le=15)
+    # fields added later: left out of the event id when empty, so older events keep their ids
+    _ID_OMIT_IF_NONE: ClassVar[frozenset[str]] = frozenset({"incline_pct", "speed_mph"})
 
 
 class PhaseStarted(_Payload):
@@ -281,7 +285,11 @@ def make_event(
         timestamp = datetime.combine(timestamp, time(12, 0), tzinfo=timezone.utc)
     model = PAYLOAD_MODELS[type]
     p = payload if isinstance(payload, model) else model.model_validate(payload)
-    canonical = json.dumps(p.model_dump(mode="json"), sort_keys=True)
+    dumped = p.model_dump(mode="json")
+    for k in getattr(model, "_ID_OMIT_IF_NONE", frozenset()):
+        if dumped.get(k) is None:
+            dumped.pop(k, None)
+    canonical = json.dumps(dumped, sort_keys=True)
     ts = _utc(timestamp)
     event_id = str(uuid.uuid5(EVENT_NAMESPACE, f"{client_id}|{type}|{ts.isoformat()}|{canonical}"))
     return Event(

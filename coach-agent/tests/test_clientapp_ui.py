@@ -45,14 +45,15 @@ def section(html: str, sid: str) -> str:
 def test_every_client_form_posts_to_its_route(env):
     client, _, _ = env
     html = client.get(f"/c/{CID}").text
-    for path, fields in (("weigh-in", ("weight", "unit", "conditions", "when")),
+    for path, fields in (("weigh-in", ("weight", "unit", "conditions", "day")),
+                         ("cardio", ("modality", "incline", "speed", "minutes", "kcal", "effort", "day")),
                          ("daily-target", ("hit", "off_protein", "off_carbs", "off_fat", "non_training", "day")),
                          ("checkin", ("hunger", "energy", "training_feel", "sleep_hours", "notes", "day")),
                          ("chat", ("message",)), ("support", ("message",))):
         f = form(html, f"/c/{CID}/{path}")
         for name in fields:
             assert f'name="{name}"' in f, (path, name)
-    assert html.count('method="post"') == 5
+    assert html.count('method="post"') == 6
 
 
 def test_daily_target_has_non_training_checkbox_and_plain_question(env):
@@ -70,25 +71,45 @@ def test_checkin_has_dropdowns_and_no_date_field(env):
     client, _, _ = env
     f = form(client.get(f"/c/{CID}").text, f"/c/{CID}/checkin")
     assert 'type="date"' not in f and 'name="when"' not in f
-    assert f'<input type="hidden" name="day" value="{TODAY.isoformat()}">' in f
+    assert '<input type="hidden" name="day" value="">' in f  # today: blank, the server's today applies
     for name in ("hunger", "energy", "training_feel", "sleep_hours"):
         assert f'<select name="{name}"' in f
     assert f.count('class="clear"') == 5  # red x on each dropdown + notes
 
 
-def test_section_order_and_nav(env):
+def test_layout_weight_on_top_macro_widget_daily_log_and_chat_widget(env):
     client, _, _ = env
     html = client.get(f"/c/{CID}").text
     order = [html.index(marker) for marker in (
-        '<section class="card" id="weigh-in"', '<section class="card diary" id="diary"',
-        '<section class="diary-entry" id="daily-target"', '<section class="diary-entry" id="checkin"',
-        '<section class="card" id="targets"', '<section class="card" id="chart"',
-        '<section class="card chat" id="chat"', '<section class="card chat" id="support"')]
+        '<section id="today" class="client-hero"', '<aside class="macro-widget" id="targets"',
+        '<section class="card" id="chart"', '<section class="card diary" id="diary"',
+        '<section class="diary-entry" id="weigh-in"', '<section class="diary-entry" id="daily-target"',
+        '<section class="diary-entry" id="cardio"', '<section class="diary-entry" id="checkin"',
+        '<section class="card chat" id="support"', '<details class="chat-widget" id="chat"')]
     assert order == sorted(order)
+    assert "Your Macro Targets" in html and "Your Daily log" in html and "Your diary" not in html
+    assert "Your targets</h2>" not in html
     nav = html.split('class="section-nav"')[1].split("</nav>")[0]
-    for anchor in ("#weigh-in", "#diary", "#targets", "#chart", "#chat", "#support"):
+    for anchor in ("#chart", "#diary", "#targets", "#support"):
         assert f'href="{anchor}"' in nav
     assert ">Support</a>" in nav and ">Coach</a>" not in nav
+    assert '<details class="chat-widget" id="chat">' in html  # closed until opened
+    assert '<details class="chat-widget" id="chat" open>' in client.get(f"/c/{CID}?chat=open").text
+
+
+def test_cardio_section_is_optional_with_types_and_incline(env):
+    client, _, _ = env
+    html = client.get(f"/c/{CID}").text
+    f = form(html, f"/c/{CID}/cardio")
+    assert 'class="optional">optional<' in html.split('id="cardio"')[1][:200]
+    labels = ["Treadmill incline walk", "Walking (outdoor)", "Running / jogging", "Stationary bike / cycling",
+              "Elliptical", "Stair climber", "Rowing machine", "Swimming"]
+    for label in labels:
+        assert f">{label}</option>" in f, label
+    assert len(labels) >= 6
+    row = f.split('class="incline-row" data-for="treadmill_incline_walk"')[1].split("</div>")[0]
+    assert ">5%</option>" in row and ">2.0 mph</option>" in row
+    assert 'name="kcal"' in f and 'name="minutes"' in f and "required" in f.split('name="minutes"')[1][:80]
 
 
 def test_mr_j_is_the_coach_and_owner_is_support(env):
@@ -204,12 +225,13 @@ def test_index_unread_badge(env):
     assert '<span class="pill unread">2 new messages</span>' in admin.get(f"/?as_of={AS_OF}").text
 
 
-def test_earlier_day_date_left_blank_so_server_today_applies(env):
-    # A page left open past midnight must not save the weigh-in to the day it was rendered.
+def test_todays_log_forms_send_no_date_so_server_today_applies(env):
+    # A page left open past midnight must not save today's entries to the day it was rendered.
     client, _, _ = env
-    f = form(client.get(f"/c/{CID}").text, f"/c/{CID}/weigh-in")
-    when = f.split('name="when"')[1].split(">")[0]
-    assert f'max="{TODAY.isoformat()}"' in when and "value=" not in when
+    html = client.get(f"/c/{CID}").text
+    for path in ("weigh-in", "daily-target", "cardio", "checkin"):
+        assert '<input type="hidden" name="day" value="">' in form(html, f"/c/{CID}/{path}"), path
+    assert 'name="when"' not in html  # no separate "earlier day" date fields any more
 
 
 def test_coach_logged_checkin_notes_not_prefilled_for_client(env):
@@ -280,3 +302,28 @@ def test_settings_menu_offers_looks_and_light_dark(env):
     css = client.get("/app-static/styles.css").text
     for look in ("studio-calm", "night-session", "retro-84"):
         assert f'html:root[data-style="{look}"] {{' in css, look
+
+
+def test_daily_log_table_shows_cardio(env):
+    client, _, _ = env
+    client.post(f"/c/{CID}/cardio", data={"modality": "treadmill_incline_walk", "minutes": "35", "kcal": "280",
+                                          "incline": "5", "speed": "2.0"})
+    table = client.get(f"/c/{CID}").text.split('class="diary-table"')[1].split("</table>")[0]
+    assert "Treadmill incline walk 35 min at 5%, 2.0 mph, 280 cal" in " ".join(table.split())
+
+
+def test_flagged_weigh_in_drawn_but_kept_out_of_client_average(env):
+    import json
+
+    from schemas.events import Source, make_event
+    client, _, db = env
+    store = EventStore(db)
+    w = [e for e in store.read(CID) if e.type == "weigh_in"][-1].payload.weight
+    before = json.loads(client.get(f"/c/{CID}").text.split('id="weight-data">')[1].split("</script>")[0])
+    store.append([make_event(CID, "weigh_in", TODAY, {"weight": w + 40, "unit": "lb",
+                                                      "conditions": "unspecified"}, Source.client)])
+    after = json.loads(client.get(f"/c/{CID}").text.split('id="weight-data">')[1].split("</script>")[0])
+    today = [r for r in after if r["date"] == TODAY.isoformat()][0]
+    assert today["weight"] == round(w + 40, 1)  # the reading the client logged is shown
+    prev = [r for r in before if r["avg"] is not None][-1]["avg"]
+    assert today["avg"] is not None and abs(today["avg"] - prev) < 2  # but it doesn't drag the trend

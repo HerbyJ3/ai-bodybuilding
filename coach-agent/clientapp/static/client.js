@@ -37,7 +37,10 @@
   // Show the saved/error banner inside the section the form came from.
   const banners = document.querySelector(".banners");
   const target = location.hash && document.getElementById(location.hash.slice(1));
-  if (banners && target && target.matches("section")) {
+  if (banners && target && target.matches("details.chat-widget")) {
+    target.querySelector(".chat-head").after(banners);  // chat errors show inside the chat panel
+    banners.classList.add("in-section");
+  } else if (banners && target && target.matches("section")) {
     const h = target.querySelector("h2");
     if (h) h.after(banners); else target.prepend(banners);
     banners.classList.add("in-section");
@@ -80,3 +83,24 @@ if (dayInput) dayInput.addEventListener("change", () => { if (dayInput.value) da
     });
   });
 })();
+
+// Cardio: incline and speed only for treadmill incline walking.
+document.querySelectorAll(".cardio-form").forEach(f => {
+  const type = f.querySelector(".cardio-type"), row = f.querySelector(".incline-row");
+  if (!type || !row) return;
+  const sync = () => {
+    const on = type.value === row.dataset.for;
+    row.hidden = !on;
+    if (!on) row.querySelectorAll("select").forEach(s => { s.value = ""; });
+  };
+  type.addEventListener("change", sync); sync();
+});
+
+// Mr. J chat widget: open it when the page is reached via #chat; keep the newest message in view.
+const chatWidget = document.getElementById("chat");
+if (chatWidget) {
+  const scroll = () => chatWidget.querySelectorAll(".messages").forEach(m => { m.scrollTop = m.scrollHeight; });
+  if (location.hash === "#chat") chatWidget.open = true;
+  chatWidget.addEventListener("toggle", () => { if (chatWidget.open) { scroll(); chatWidget.querySelector("textarea")?.focus(); } });
+  scroll();
+}

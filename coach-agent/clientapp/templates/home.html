@@ -60,7 +60,7 @@
 
 {% block nav %}
 <nav class="section-nav" aria-label="Sections">
-  <a href="#weigh-in">Weigh-in</a><a href="#diary">Diary</a><a href="#targets">Targets</a><a href="#chart">Weight</a><a href="#chat">Mr. J</a><a href="#support">Support</a>
+  <a href="#chart">Weight</a><a href="#diary">Daily log</a><a href="#targets">Macro targets</a><a href="#support">Support</a>
 </nav>
 {% if error or notice %}
 <div class="banners">
@@ -74,24 +74,49 @@
 {% set tm = (targets|selectattr("day_type", "equalto", training_type)|list|first) if training_type else none %}
 {% set rm = targets|selectattr("day_type", "equalto", "non_training")|list|first %}
 
-<section id="today" class="group">
-  <h1>Hi {{ cid }}</h1>
-  <p class="muted">Today is {{ nice_date(today) }}.</p>
-
-  <section class="card" id="weigh-in">
-    <h2>Weigh-in</h2>
-    <form method="post" action="/c/{{ cid }}/weigh-in" class="stack">
-      <div class="weight-row">
-        <label>Weight <input name="weight" type="number" step="any" min="50" max="700" inputmode="decimal" required></label>
-        <label>Unit <select name="unit"><option value="lb">lb</option><option value="kg">kg</option></select></label>
+<section id="today" class="client-hero">
+  <div class="greeting">
+    <h1>Hi {{ cid }}</h1>
+    <p class="muted">Today is {{ nice_date(today) }}.</p>
+  </div>
+  <aside class="macro-widget" id="targets" aria-labelledby="targets-title">
+    <h2 id="targets-title">Your Macro Targets</h2>
+    {% set wt = tm or (targets|first if targets else none) %}
+    {% if wt %}
+    <p class="small muted widget-day">{{ day_label(wt.day_type) }}</p>
+    <dl class="macro-grid">
+      <div><dt>Protein</dt><dd>{{ wt.protein_g }}<span>g</span></dd></div>
+      <div><dt>Carbs</dt><dd>{{ wt.carb_g }}<span>g</span></dd></div>
+      <div><dt>Fat</dt><dd>{{ wt.fat_g }}<span>g</span></dd></div>
+      <div><dt>Calories</dt><dd>{{ wt.kcal }}</dd></div>
+    </dl>
+    {% else %}<p class="small muted">Mr. J hasn't set your targets yet.</p>{% endif %}
+    <details class="widget-more"><summary>All targets &amp; changes</summary>
+      {% for t in targets %}
+      <div class="target">
+        <h3>{{ day_label(t.day_type) }}</h3>
+        <p class="small">{{ t.protein_g }} g protein · {{ t.carb_g }} g carbs · {{ t.fat_g }} g fat · {{ t.kcal }} calories</p>
       </div>
-      <label>How did you weigh in? <input name="conditions" placeholder="optional, e.g. after waking, before food"></label>
-      <details class="earlier"><summary>Logging an earlier day?</summary>
-        <label>Date <input type="date" name="when" max="{{ today }}"></label>
-      </details>
-      <button>Save weigh-in</button>
-    </form>
-  </section>
+      {% endfor %}
+      <h3 class="subsection">Changes from Mr. J</h3>
+      {% if not changes %}<p class="muted small">No changes yet.</p>{% endif %}
+      <ul class="changes">{% for c in changes %}<li>On {{ nice_date(c.date) }} Mr. J updated your plan: <strong>{{ change_text(c) }}</strong></li>{% endfor %}</ul>
+    </details>
+  </aside>
+</section>
+
+<section class="card" id="chart">
+  <h2>Your weight</h2>
+  <p class="muted small">Daily readings and the 7-day average{% if state.phase %}, during your {{ phase_label(state.phase.phase) }}{% endif %}. The average smooths out day-to-day ups and downs.</p>
+  {% if chart %}
+  <div class="legend"><span><i class="key s1"></i>7-day average</span><span><i class="dot s2"></i>Daily reading</span></div>
+  <div class="chart-wrap">{{ chart|safe }}<div class="tooltip" hidden></div></div>
+  <script type="application/json" id="weight-data">{{ series|tojson }}</script>
+  <details><summary>Table view</summary>
+    <table><thead><tr><th>Date</th><th>Reading (lb)</th><th>7-day average (lb)</th></tr></thead><tbody>
+    {% for r in series|reverse %}<tr><td>{{ r.date }}</td><td>{{ r.weight }}</td><td>{{ r.avg if r.avg is not none else "–" }}</td></tr>{% endfor %}
+    </tbody></table></details>
+  {% else %}<p class="muted">Log a few weigh-ins to see your chart.</p>{% endif %}
 </section>
 
 {% set dm = day_macros or {} %}
@@ -103,11 +128,11 @@
 {% set lvname = {1: "Low", 2: "Low", 3: "Mid", 4: "High", 5: "High"} %}
 {% set feel = {"crap": "Rough", "good": "Good", "fantastic": "Great"} %}
 <section class="card diary" id="diary">
-  <h2>Your diary</h2>
+  <h2>Your Daily log</h2>
   <div class="date-bar">
     <a class="day-step" href="/c/{{ cid }}?day={{ prev_day }}#diary" aria-label="Previous day">&#9664;</a>
     <form method="get" action="/c/{{ cid }}" class="day-pick">
-      <label class="sr-only" for="day-input">Diary date</label>
+      <label class="sr-only" for="day-input">Log date</label>
       <span class="day-name">{{ day_title(day) }}{% if day == today %} · today{% endif %}</span>
       <input id="day-input" type="date" name="day" value="{{ day }}" max="{{ today }}" aria-label="Pick a date">
       <noscript><button class="small">Go</button></noscript>
@@ -125,6 +150,11 @@
         <td>{% if dt %}{{ "Hit" if dt.hit else "Missed" }}{% if dt.day_type == "non_training" %} · rest day{% endif %}
           {%- if not dt.hit and dt.off_by %}: {% for k, g in dt.off_by.items() %}{{ k|replace("_g", "")|replace("carb", "carbs") }} {{ "%+d"|format(g) }} g{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
           {% else %}<span class="muted">–</span>{% endif %}</td></tr>
+      <tr><th scope="row">Cardio</th>
+        <td>{% if entries.cardio %}{% for c in entries.cardio %}{{ cardio_types.get(c.modality, c.modality|replace("_", " ")) }} {{ c.minutes|round|int }} min
+          {%- if c.incline_pct %} at {{ c.incline_pct|round|int }}%{% endif %}{% if c.speed_mph %}, {{ "%.1f"|format(c.speed_mph) }} mph{% endif %}
+          {%- if c.est_kcal %}, {{ c.est_kcal|round|int }} cal{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}
+          {% else %}<span class="muted">– (optional)</span>{% endif %}</td></tr>
       <tr><th scope="row">Check-in</th>
         <td>{% if entries.checkin %}Hunger {{ lvname.get(ci.hunger, "–") }}, energy {{ lvname.get(ci.energy, "–") }}
           {%- if ci.training_feel %}, training {{ feel.get(ci.training_feel, ci.training_feel)|lower }}{% endif %}
@@ -134,10 +164,23 @@
     </tbody>
   </table>
 
+  <section class="diary-entry" id="weigh-in">
+    <h3>Weigh-in</h3>
+    <form method="post" action="/c/{{ cid }}/weigh-in" class="stack">
+      <input type="hidden" name="day" value="{{ '' if day == today else day }}">
+      <div class="weight-row">
+        <label>Weight <input name="weight" type="number" step="any" min="50" max="700" inputmode="decimal" required></label>
+        <label>Unit <select name="unit"><option value="lb">lb</option><option value="kg">kg</option></select></label>
+      </div>
+      <label>How did you weigh in? <input name="conditions" placeholder="optional, e.g. after waking, before food"></label>
+      <button>Save weigh-in</button>
+    </form>
+  </section>
+
   <section class="diary-entry" id="daily-target">
     <h3>Did you hit your targets{% if day == today %} today{% else %} on {{ nice_date(day) }}{% endif %}?</h3>
     <form method="post" action="/c/{{ cid }}/daily-target" class="stack daily-form">
-      <input type="hidden" name="day" value="{{ day }}">
+      <input type="hidden" name="day" value="{{ '' if day == today else day }}">
       <fieldset class="choice">
         <legend class="sr-only">Did you hit your targets?</legend>
         <label><input type="radio" name="hit" value="yes"{% if not dt or dt.hit %} checked{% endif %}> Yes</label>
@@ -165,11 +208,41 @@
     </form>
   </section>
 
+  <section class="diary-entry" id="cardio">
+    <h3>Cardio <span class="optional">optional</span></h3>
+    <p class="small muted">Only if you did some. Skip this on days without cardio.</p>
+    <form method="post" action="/c/{{ cid }}/cardio" class="stack cardio-form">
+      <input type="hidden" name="day" value="{{ '' if day == today else day }}">
+      <label>Type
+        <select name="modality" class="cardio-type" required>
+          <option value="">Choose…</option>
+          {% for value, label in cardio_types.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select></label>
+      <div class="incline-row" data-for="treadmill_incline_walk">
+        <label>Incline
+          <select name="incline"><option value="">–</option>
+            {% for i in incline_choices %}<option value="{{ i }}">{{ i }}%</option>{% endfor %}
+          </select></label>
+        <label>Speed
+          <select name="speed"><option value="">–</option>
+            {% for v in speed_choices %}<option value="{{ v }}">{{ "%.1f"|format(v) }} mph</option>{% endfor %}
+          </select></label>
+      </div>
+      <div class="grid-3">
+        <label>Time (min) <input name="minutes" type="number" min="1" max="600" step="1" inputmode="numeric" required></label>
+        <label>Calories burned <input name="kcal" type="number" min="0" max="3000" step="1" inputmode="numeric" placeholder="optional"></label>
+        <label>Effort
+          <select name="effort"><option value="easy">Easy</option><option value="moderate" selected>Moderate</option><option value="hard">Hard</option></select></label>
+      </div>
+      <button>Save cardio</button>
+    </form>
+  </section>
+
   <section class="diary-entry" id="checkin">
     <h3>How {% if day == today %}are you{% else %}were you{% endif %} feeling?</h3>
     {% if entries.checkin %}<p class="small muted">Saved for this day. Save again to update it.</p>{% else %}<p class="small muted">A quick check-in. Hunger and energy are needed; the rest is optional.</p>{% endif %}
     <form method="post" action="/c/{{ cid }}/checkin" class="stack checkin-form">
-      <input type="hidden" name="day" value="{{ day }}">
+      <input type="hidden" name="day" value="{{ '' if day == today else day }}">
       {% macro dropdown(label, name, options, current, required=false) %}
       <label>{{ label }}
         <span class="field"><select name="{{ name }}"{% if required %} required{% endif %}>
@@ -187,53 +260,6 @@
       <button>Save check-in</button>
     </form>
   </section>
-</section>
-
-<section class="card" id="targets">
-  <h2>Your targets</h2>
-  {% if not targets %}<p class="muted">Mr. J hasn't set your targets yet.</p>{% endif %}
-  {% for t in targets %}
-  <div class="target">
-    <h3>{{ day_label(t.day_type) }}{% if t.day_type == training_type and rm %} <span class="muted small">use on training days</span>{% endif %}</h3>
-    <dl class="stats four">
-      <div><dt>Protein</dt><dd>{{ t.protein_g }} g</dd></div>
-      <div><dt>Carbs</dt><dd>{{ t.carb_g }} g</dd></div>
-      <div><dt>Fat</dt><dd>{{ t.fat_g }} g</dd></div>
-      <div><dt>Calories</dt><dd>{{ t.kcal }}</dd></div>
-    </dl>
-  </div>
-  {% endfor %}
-  <h3 class="subsection">Changes from Mr. J</h3>
-  {% if not changes %}<p class="muted">No changes yet.</p>{% endif %}
-  <ul class="changes">{% for c in changes %}<li>On {{ nice_date(c.date) }} Mr. J updated your plan: <strong>{{ change_text(c) }}</strong></li>{% endfor %}</ul>
-</section>
-
-<section class="card" id="chart">
-  <h2>Your weight</h2>
-  <p class="muted small">Daily readings and the 7-day average{% if state.phase %}, during your {{ phase_label(state.phase.phase) }}{% endif %}. The average smooths out day-to-day ups and downs.</p>
-  {% if chart %}
-  <div class="legend"><span><i class="key s1"></i>7-day average</span><span><i class="dot s2"></i>Daily reading</span></div>
-  <div class="chart-wrap">{{ chart|safe }}<div class="tooltip" hidden></div></div>
-  <script type="application/json" id="weight-data">{{ series|tojson }}</script>
-  <details><summary>Table view</summary>
-    <table><thead><tr><th>Date</th><th>Reading (lb)</th><th>7-day average (lb)</th></tr></thead><tbody>
-    {% for r in series|reverse %}<tr><td>{{ r.date }}</td><td>{{ r.weight }}</td><td>{{ r.avg if r.avg is not none else "–" }}</td></tr>{% endfor %}
-    </tbody></table></details>
-  {% else %}<p class="muted">Log a few weigh-ins to see your chart.</p>{% endif %}
-</section>
-
-<section class="card chat" id="chat">
-  <h2>Chat with Mr. J</h2>
-  <p class="muted small">Mr. J is your AI coach. He runs on Claude, an AI service from Anthropic, so your messages are sent there to be answered. Our support team can also see this chat.</p>
-  <div class="messages">
-    {% if not chat %}<p class="muted">Ask Mr. J about your plan, your targets or a recent change.</p>{% endif %}
-    {% for m in chat %}<div class="msg {{ 'user' if m.role == 'user' else 'assistant' }}"><div class="msg-body">{{ m.content }}</div></div>{% endfor %}
-  </div>
-  <form method="post" action="/c/{{ cid }}/chat" class="stack">
-    <label class="sr-only" for="chat-message">Message to Mr. J</label>
-    <textarea id="chat-message" name="message" rows="3" maxlength="4000" required placeholder="Ask Mr. J…"></textarea>
-    <button data-busy="Mr. J is thinking…">Send</button>
-  </form>
 </section>
 
 <section class="card chat" id="support">
@@ -254,5 +280,22 @@
     <button>Send to support</button>
   </form>
 </section>
+
+<details class="chat-widget" id="chat"{% if chat_open %} open{% endif %}>
+  <summary class="chat-launcher" aria-label="Chat with Mr. J"><span class="chat-icon" aria-hidden="true">&#128172;</span><span class="chat-label">Chat with Mr. J</span></summary>
+  <section class="chat-panel chat" aria-label="Chat with Mr. J">
+    <header class="chat-head"><strong>Mr. J</strong> <span class="small">your AI coach</span></header>
+    <p class="muted small">Mr. J is your AI coach. He runs on Claude, an AI service from Anthropic, so your messages are sent there to be answered. Our support team can also see this chat.</p>
+    <div class="messages">
+      {% if not chat %}<p class="muted">Ask Mr. J about your plan, your targets or a recent change.</p>{% endif %}
+      {% for m in chat %}<div class="msg {{ 'user' if m.role == 'user' else 'assistant' }}"><div class="msg-body">{{ m.content }}</div></div>{% endfor %}
+    </div>
+    <form method="post" action="/c/{{ cid }}/chat" class="stack">
+      <label class="sr-only" for="chat-message">Message to Mr. J</label>
+      <textarea id="chat-message" name="message" rows="2" maxlength="4000" required placeholder="Ask Mr. J…"></textarea>
+      <button data-busy="Mr. J is thinking…">Send</button>
+    </form>
+  </section>
+</details>
 {% endblock %}
 {% block scripts %}<script src="/static/chart.js"></script>{% endblock %}
