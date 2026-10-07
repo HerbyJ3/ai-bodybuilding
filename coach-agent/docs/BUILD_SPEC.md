@@ -410,6 +410,8 @@ CLI: `coach review <client_id> <as_of> [--full]`
 
 Owner decisions 2026-10-05 (see OPEN_ITEMS "Client web app"). Path: **local prototype (this section)** → hosted beta → installable phone web app → app stores. The prototype has no hosting and no real logins.
 
+**Status: built** (local only). This section describes what was built; open owner choices are in OPEN_ITEMS "Client web app".
+
 **Shape**
 - Separate FastAPI + Jinja app in `clientapp/` (`create_client_app(data_dir, cfg, llm_factory, today)`), started with `coach client-app --data-dir <dir> [--port 8766] [--no-open]`, bound to 127.0.0.1. It has **no admin routes**, so it can later be hosted on its own. It reuses `dashboard/store.py`, `dashboard/charts.py` and the dashboard helpers; it does not change engine rules.
 - Entry point: `/` lists client ids to pick (local stand-in for a login); each client's pages live under `/c/{client_id}`. Replaced by real logins before the hosted beta.
@@ -417,18 +419,23 @@ Owner decisions 2026-10-05 (see OPEN_ITEMS "Client web app"). Path: **local prot
 - Dates come from the server's "today" (no "As of" picker for clients).
 
 **Client features (first set)**
-1. **Weigh-in**: weight, unit, optional conditions; date defaults to today (no future dates).
-2. **Daily Target**: "Did you hit your targets?" yes/no, off-by dropdowns per macro (same choices as the dashboard), **non-training-day checkbox**; date defaults to today.
-3. **Check-in**: dropdowns only (hunger, energy, training feel, sleep) plus optional notes; **no date field**, it is dated today, and saving again the same day replaces it (latest wins).
+1. **Weigh-in**: weight, unit, optional conditions; the date field is blank by default and a blank date means the server's today (enter a date only for an earlier day; no future dates).
+2. **Daily Target**: "Did you hit your targets?" yes/no, off-by dropdowns per macro (same choices as the dashboard), **non-training-day checkbox**; date blank by default = today (same rule as weigh-in).
+3. **Check-in**: dropdowns only (hunger, energy, training feel, sleep) plus optional notes; **no date field**, it is dated today, and saving again the same day replaces it (latest wins). Check-in notes logged by the coach are **not prefilled** for the client.
 4. **Your targets**: current macro targets per day type (`ClientState.current_macros`) and the list of approved/modified decisions (`ApprovalQueue.approved`) in plain words. **Never** pending, rejected, superseded or info items, and never queue internals.
 5. **Weight chart**: daily readings + 7-day average with table view (same chart code).
-6. **Mr. J chat**: `open_session(audience="client")`; Mr. J presents only approved changes and sends support issues to the coach. Saved per client, separate from the coach ↔ Mr. J chat.
+6. **Mr. J chat**: `open_session(audience="client_app")` (see "Mr. J audiences" below); Mr. J presents only approved changes and points support issues to "Message your coach". Saved per client, separate from the coach ↔ Mr. J chat. The chat shows a notice that messages are sent to Claude (Anthropic) to answer.
 7. **Messages to coach** (support only): a plain message thread with the coach. No AI in this thread.
+
+**Mr. J audiences** (`llm/` prompt builder and session)
+- `coach`: the coach ↔ Mr. J chat in the dashboard. Full context.
+- `client`: the CLI check-in message and evals (`coach checkin`, `coach eval`). Includes coach notes on decisions, because the coach reviews this draft before it reaches the client.
+- `client_app`: the client talking to Mr. J directly in the client app. Leaves out coach notes on decisions (`coach_note`), notes on target changes and history-review findings; support wording is "Message your coach".
 
 All client-entered events use `Source.client`. Validation and "latest wins per day" are the same as the dashboard.
 
 **Storage** (same per-client SQLite file, not events; these are not engine inputs)
-- `chat_messages` gains an `audience` column (`coach` | `client`, existing rows = `coach`). The coach session loads only `coach` rows, the client session only `client` rows; "clear chat" only clears its own audience.
+- `chat_messages` gains an `audience` column (`coach` | `client`), added by a migration on open; existing rows become `coach`. The coach session loads only `coach` rows, the client app session only `client` rows; "clear chat" only clears its own audience.
 - New `support_messages` table: `id, client_id, created_at, sender (client|coach), content, read_at`.
 
 **Coach/admin view changes**

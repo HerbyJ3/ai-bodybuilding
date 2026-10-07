@@ -16,10 +16,17 @@
 - [ ] Form-forgery (CSRF) protection on both apps: any web page open in the browser can post to the local apps today (adds events, spends API credit on chat). Add with logins, before hosting
 - [ ] Mr. J cost control for client chat (who pays, per-client limits)
 - [ ] Path: local client-view prototype → hosted beta (2–3 clients) → installable phone web app → App Store / Google Play if the beta works
-- [ ] **Local client-view prototype** (BUILD_SPEC §15): in progress
+- [x] **Local client-view prototype** (BUILD_SPEC §15): built (`coach client-app`), not hosted
 - [ ] Can the coach read the client ↔ Mr. J chat in the admin view? Prototype default: yes, read-only, and the client app says so
 - [ ] Do coach notes on approved decisions show to the client? Prototype default: no, the client sees the change and date only (notes may be internal)
 - [ ] Should Mr. J flag support topics to the coach automatically? Prototype default: no, Mr. J only tells the client to use "Message your coach"
+
+Found while building the prototype (owner to decide):
+- [ ] **Client weight chart hides weigh-ins flagged by data quality**, the same as the coach chart. Proposed: show all weigh-ins to the client (a missing reading they just logged looks like a bug)
+- [ ] **Training-feel labels for clients** are "Crap / Good / Fantastic" (same as the dashboard). Proposed for clients: "Rough / Good / Great"
+- [ ] **Message times show in UTC.** Proposed: show the client's local time
+- [ ] **What client Mr. J may see:** limitation descriptions and check-in notes typed by the coach still go into the client app's Mr. J prompt, and Mr. J sees the engine's reasoning for each change. Decide whether any of this is internal and should be left out
+- [ ] **Before hosting** (with logins): client ids must not be real names, and the client pick page must sit behind logins; the confirmation banner text comes from the web address today, switch to fixed message codes; history-review findings still steer which book passages client Mr. J looks up (low risk, findings themselves are not shown)
 
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
