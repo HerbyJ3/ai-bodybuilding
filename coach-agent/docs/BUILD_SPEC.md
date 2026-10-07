@@ -420,19 +420,22 @@ Owner decisions 2026-10-05 (see OPEN_ITEMS "Client web app"). Path: **local prot
 
 **Client features (first set)**
 1. **Weigh-in**: weight, unit, optional conditions; the date field is blank by default and a blank date means the server's today (enter a date only for an earlier day; no future dates).
-2. **Daily Target**: "Did you hit your targets?" yes/no, off-by dropdowns per macro (same choices as the dashboard), **non-training-day checkbox**; date blank by default = today (same rule as weigh-in).
-3. **Check-in**: dropdowns only (hunger, energy, training feel shown as Rough / Good / Great, sleep) plus optional notes; **no date field**, it is dated today, and saving again the same day replaces it (latest wins). Check-in notes logged by the coach are **not prefilled** for the client.
+   The weigh-in stays at the top of the page.
+2. **Diary** (owner request 2026-10-07, in the style of a food diary): a date bar (◀ previous day · "Tuesday, October 6, 2026" with a calendar picker · next day ▶, never past today; `?day=YYYY-MM-DD`, blank/malformed/future = today). It shows what was logged that day (weigh-ins, Daily Target, check-in) and holds the Daily Target and check-in forms for that day, prefilled with what was saved. Saving redirects back to the same day.
+   - **Daily Target**: "Did you hit your targets?" yes/no, off-by dropdowns per macro (same choices as the dashboard), **non-training-day checkbox**; dated by the diary day.
+   - **Check-in**: dropdowns only (hunger, energy, training feel shown as Rough / Good / Great, sleep) plus optional notes; no date input in the form (the diary day is a hidden field); saving again for the same day replaces it (latest wins). Check-in notes logged by the coach are **not shown** to the client.
 4. **Your targets**: current macro targets per day type (`ClientState.current_macros`) and the list of approved/modified decisions (`ApprovalQueue.approved`) in plain words. **Never** pending, rejected, superseded or info items, and never queue internals.
 5. **Weight chart**: daily readings + 7-day average with table view (same chart code). Shows **every** weigh-in the client logged; data-quality exclusions apply to the coach chart only.
-6. **Mr. J chat**: `open_session(audience="client_app")` (see "Mr. J audiences" below); Mr. J presents only approved changes and points support issues to "Message your coach". Saved per client, separate from the coach ↔ Mr. J chat. The chat shows a notice that messages are sent to Claude (Anthropic) to answer.
-7. **Messages to coach** (support only): a plain message thread with the coach. No AI in this thread.
+6. **Mr. J chat**: `open_session(audience="client_app")` (see "Mr. J audiences" below); to the client, **Mr. J is their coach**; he presents only approved changes as his plan and points support issues to "Contact support". Saved per client, separate from the coach ↔ Mr. J chat. The chat shows a notice that messages are sent to Claude (Anthropic) to answer.
+7. **Contact support** (support only): a plain message thread with the human coach behind the scenes, who appears to the client only as "Support". No AI in this thread.
+8. **Settings** (⚙ in the header): **Look** = Classic (default), Studio Calm, Night Session, Retro '84 (styles designed by the graphic artist with Higgsfield mockups, 2026-10-07; tokens in `clientapp/static/styles.css`), and **Light or dark** (Classic look only). Saved in the browser on that device only; a look's Google Fonts are fetched only when it is picked.
 
 Message times are stored in UTC and shown in the viewer's local time (both apps).
 
 **Mr. J audiences** (`llm/` prompt builder and session)
 - `coach`: the coach ↔ Mr. J chat in the dashboard. Full context.
 - `client`: the CLI check-in message and evals (`coach checkin`, `coach eval`). Includes coach notes on decisions, because the coach reviews this draft before it reaches the client.
-- `client_app`: the client talking to Mr. J directly in the client app. Leaves out coach notes on decisions (`coach_note`), notes on target changes, check-in notes typed by the coach, and history-review findings (limitations stay: they are hard constraints); support wording is "Message your coach".
+- `client_app`: the client talking to Mr. J directly in the client app. Leaves out coach notes on decisions (`coach_note`), notes on target changes, check-in notes typed by the coach, and history-review findings (limitations stay: they are hard constraints); Mr. J speaks as the client's coach (never refers to a separate coach), says plainly he is an AI if asked, explains that plan changes are made at check-ins without promising one, and points support issues to "Contact support".
 
 All client-entered events use `Source.client`. Validation and "latest wins per day" are the same as the dashboard.
 

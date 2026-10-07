@@ -46,8 +46,8 @@ def test_every_client_form_posts_to_its_route(env):
     client, _, _ = env
     html = client.get(f"/c/{CID}").text
     for path, fields in (("weigh-in", ("weight", "unit", "conditions", "when")),
-                         ("daily-target", ("hit", "off_protein", "off_carbs", "off_fat", "non_training", "when")),
-                         ("checkin", ("hunger", "energy", "training_feel", "sleep_hours", "notes")),
+                         ("daily-target", ("hit", "off_protein", "off_carbs", "off_fat", "non_training", "day")),
+                         ("checkin", ("hunger", "energy", "training_feel", "sleep_hours", "notes", "day")),
                          ("chat", ("message",)), ("support", ("message",))):
         f = form(html, f"/c/{CID}/{path}")
         for name in fields:
@@ -65,10 +65,12 @@ def test_daily_target_has_non_training_checkbox_and_plain_question(env):
     assert "50 g under" in f and "50 g over" in f  # off-by choices in words
 
 
-def test_checkin_has_dropdowns_and_no_date(env):
+def test_checkin_has_dropdowns_and_no_date_field(env):
+    # the date comes from the diary bar (hidden field), never a date input in the form
     client, _, _ = env
     f = form(client.get(f"/c/{CID}").text, f"/c/{CID}/checkin")
     assert 'type="date"' not in f and 'name="when"' not in f
+    assert f'<input type="hidden" name="day" value="{TODAY.isoformat()}">' in f
     for name in ("hunger", "energy", "training_feel", "sleep_hours"):
         assert f'<select name="{name}"' in f
     assert f.count('class="clear"') == 5  # red x on each dropdown + notes
@@ -77,16 +79,60 @@ def test_checkin_has_dropdowns_and_no_date(env):
 def test_section_order_and_nav(env):
     client, _, _ = env
     html = client.get(f"/c/{CID}").text
-    order = [html.index(f'<section class="card{c}" id="{s}"') for c, s in
-             (("", "weigh-in"), ("", "daily-target"), ("", "checkin"), ("", "targets"), ("", "chart"),
-              (" chat", "chat"), (" chat", "support"))]
+    order = [html.index(marker) for marker in (
+        '<section class="card" id="weigh-in"', '<section class="card diary" id="diary"',
+        '<section class="diary-entry" id="daily-target"', '<section class="diary-entry" id="checkin"',
+        '<section class="card" id="targets"', '<section class="card" id="chart"',
+        '<section class="card chat" id="chat"', '<section class="card chat" id="support"')]
     assert order == sorted(order)
     nav = html.split('class="section-nav"')[1].split("</nav>")[0]
-    for anchor in ("#today", "#targets", "#chart", "#chat", "#support"):
+    for anchor in ("#weigh-in", "#diary", "#targets", "#chart", "#chat", "#support"):
         assert f'href="{anchor}"' in nav
-    assert "Your coach can see this chat" in section(html, "chat")
-    assert ("For questions about your plan, ask Mr. J. Use this for anything else you need your coach for."
-            in section(html, "support"))
+    assert ">Support</a>" in nav and ">Coach</a>" not in nav
+
+
+def test_mr_j_is_the_coach_and_owner_is_support(env):
+    client, _, _ = env
+    html = client.get(f"/c/{CID}").text
+    chat = section(html, "chat")
+    assert "Mr. J is your AI coach" in chat and "support team can also see this chat" in chat
+    support = section(html, "support")
+    assert "Contact support" in support and "ask Mr. J" in support and "Send to support" in support
+    assert "your coach" not in html.lower()
+
+
+def test_diary_date_bar_and_day_entries(env):
+    from schemas.events import Source, make_event
+    client, _, db = env
+    html = section(client.get(f"/c/{CID}").text, "diary")
+    assert "Monday, September 28, 2026" in html and "· today" in html
+    assert f'href="/c/{CID}?day=2026-09-27#diary"' in html  # previous day
+    assert 'class="day-step off"' in html  # no next day past today
+    assert f'type="date" name="day" value="2026-09-28" max="2026-09-28"' in html
+    store = EventStore(db)
+    store.append([
+        make_event(CID, "weekly_checkin", date(2026, 9, 20),
+                   {"hunger": 1, "energy": 5, "training_feel": "crap", "notes": "SYNTH-DAY-NOTE"}, Source.client),
+        make_event(CID, "macro_adherence_logged", date(2026, 9, 20),
+                   {"date": date(2026, 9, 20), "hit": False, "off_by": {"carb_g": -30},
+                    "day_type": "non_training"}, Source.client)])
+    html = client.get(f"/c/{CID}?day=2026-09-20").text  # diary holds nested sections: use the page
+    assert "Sunday, September 20, 2026" in html and "· today" not in html
+    assert f'href="/c/{CID}?day=2026-09-21#diary"' in html  # next day available
+    assert "Missed · rest day: carbs -30 g" in html
+    assert "Hunger Low, energy High, training rough" in html and "SYNTH-DAY-NOTE" in html
+    assert '<input type="radio" name="hit" value="no" checked>' in html
+    assert 'value="-30" selected' in html
+    for path in ("daily-target", "checkin"):
+        assert '<input type="hidden" name="day" value="2026-09-20">' in form(html, f"/c/{CID}/{path}")
+    assert "Did you hit your targets on Sep 20, 2026?" in html
+
+
+def test_diary_day_never_in_future_or_malformed(env):
+    client, _, _ = env
+    for day in ("2026-10-15", "garbage"):
+        html = section(client.get(f"/c/{CID}?day={day}").text, "diary")
+        assert "Monday, September 28, 2026" in html
 
 
 def test_targets_in_plain_words(env, cfg):
@@ -97,7 +143,7 @@ def test_targets_in_plain_words(env, cfg):
     q.decide(pid, "approved", at=datetime(2026, 9, 28, 9, tzinfo=timezone.utc))
     html = section(client.get(f"/c/{CID}").text, "targets")
     assert "Rest day" in html and "Training day (moderate)" in html and "non_training" not in html
-    assert "On Sep 28, 2026 your coach approved:" in html
+    assert "On Sep 28, 2026 Mr. J updated your plan:" in html
     assert "decrease_calories" not in html and "calories.cut" not in html
 
 
@@ -159,13 +205,11 @@ def test_index_unread_badge(env):
 
 
 def test_earlier_day_date_left_blank_so_server_today_applies(env):
-    # A page left open past midnight must not save to the day it was rendered.
+    # A page left open past midnight must not save the weigh-in to the day it was rendered.
     client, _, _ = env
-    html = client.get(f"/c/{CID}").text
-    for path in ("weigh-in", "daily-target"):
-        f = form(html, f"/c/{CID}/{path}")
-        when = f.split('name="when"')[1].split(">")[0]
-        assert f'max="{TODAY.isoformat()}"' in when and "value=" not in when
+    f = form(client.get(f"/c/{CID}").text, f"/c/{CID}/weigh-in")
+    when = f.split('name="when"')[1].split(">")[0]
+    assert f'max="{TODAY.isoformat()}"' in when and "value=" not in when
 
 
 def test_coach_logged_checkin_notes_not_prefilled_for_client(env):
@@ -174,7 +218,7 @@ def test_coach_logged_checkin_notes_not_prefilled_for_client(env):
     EventStore(db).append([make_event(CID, "weekly_checkin", TODAY,
                                       {"hunger": 3, "energy": 3, "notes": "SYNTH-COACH-NOTE"}, Source.coach)])
     html = client.get(f"/c/{CID}").text
-    assert "Saved for today" in html and "SYNTH-COACH-NOTE" not in html
+    assert "Saved for this day" in html and "SYNTH-COACH-NOTE" not in html
     client.post(f"/c/{CID}/checkin", data={"hunger": "low", "energy": "mid", "notes": "SYNTH-MY-NOTE"})
     assert 'value="SYNTH-MY-NOTE"' in client.get(f"/c/{CID}").text
 
@@ -210,3 +254,29 @@ def test_client_chart_shows_weigh_ins_the_coach_chart_flags(env):
     data = lambda html: html.split('id="weight-data">')[1].split("</script>")[0]
     assert TODAY.isoformat() in data(client.get(f"/c/{CID}").text)
     assert TODAY.isoformat() not in data(admin.get(f"/client/{CID}?as_of={TODAY}").text)
+
+
+def test_diary_day_hides_coach_typed_checkin_notes(env):
+    from schemas.events import Source, make_event
+    client, _, db = env
+    EventStore(db).append([make_event(CID, "weekly_checkin", date(2026, 9, 21),
+                                      {"hunger": 3, "energy": 3, "notes": "SYNTH-COACH-DAY-NOTE"}, Source.coach)])
+    html = client.get(f"/c/{CID}?day=2026-09-21").text
+    assert "Hunger Mid, energy Mid" in html and "SYNTH-COACH-DAY-NOTE" not in html
+
+
+def test_settings_menu_offers_looks_and_light_dark(env):
+    client, _, _ = env
+    html = client.get(f"/c/{CID}").text
+    panel = html.split('<details class="settings">')[1].split("</details>")[0]
+    for look in ("classic", "studio-calm", "night-session", "retro-84"):
+        assert f'name="style" value="{look}"' in panel, look
+    assert "Retro &#39;84" in panel or "Retro '84" in panel
+    for mode in ("auto", "light", "dark"):
+        assert f'name="mode" value="{mode}"' in panel
+    assert "Saved on this device only" in panel
+    # fonts for a look are fetched only after a client picks it (no stylesheet link up front)
+    assert '<link rel="stylesheet" href="https://fonts.googleapis.com' not in html
+    css = client.get("/app-static/styles.css").text
+    for look in ("studio-calm", "night-session", "retro-84"):
+        assert f'html:root[data-style="{look}"] {{' in css, look

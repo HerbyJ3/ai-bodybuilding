@@ -154,7 +154,7 @@ def test_all_client_created_events_are_source_client(both):
 
 def test_support_round_trip_unread_seen_and_reply(both):
     loc, html = both.post("support", {"message": "SYNTH-SUPPORT-Q1"})
-    assert "notice=" in loc and "Message sent to your coach" in html
+    assert "notice=" in loc and "Message sent to support" in html
     assert "Seen" not in section(html, "support")
 
     # coach: unread on the client page and the index badge; GETs don't mark it read

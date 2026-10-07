@@ -1,11 +1,12 @@
 """Client web app — local prototype (BUILD_SPEC §15). Runs on 127.0.0.1 with no admin routes,
 so it can later be hosted on its own. Clients pick their id at `/` (stand-in for a login) and
 use `/c/{client_id}`. Dates come from the server's "today"; every event written is
-Source.client. Pending/rejected/superseded proposals, queue internals, history review,
+Source.client. To the client, Mr. J is their coach; the human coach behind the scenes appears
+only as "support". Pending/rejected/superseded proposals, queue internals, history review,
 data-quality flags and the coach's chat are never shown here."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlencode
@@ -29,6 +30,14 @@ from store.event_store import EventStore
 
 HERE = Path(__file__).resolve().parent
 
+# Looks a client can pick in Settings (value, label, one-line note); CSS lives in static/styles.css.
+CLIENT_STYLES: list[tuple[str, str, str]] = [
+    ("classic", "Classic", "Calm slate and sand (default)"),
+    ("studio-calm", "Studio Calm", "Warm paper and navy. Quiet, light and easy on the eyes."),
+    ("night-session", "Night Session", "Deep navy with sand highlights. Calm and focused, great at night."),
+    ("retro-84", "Retro '84", "Neon sunset and grid lines. A fun throwback to the 80s."),
+]
+
 
 def create_client_app(data_dir: Path, cfg: Config | None = None,
                       llm_factory: Callable[[], Any] = _default_llm,
@@ -43,6 +52,8 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
     tpl.env.globals["asset"] = asset_url
     tpl.env.globals["level_name"] = level_name
     tpl.env.globals["off_by_choices"] = OFF_BY_CHOICES
+    tpl.env.globals["client_styles"] = CLIENT_STYLES
+    tpl.env.globals["weekday"] = lambda iso: date.fromisoformat(iso[:10]).strftime("%A")
 
     def client(cid: str) -> tuple[ClientRef, EventStore]:
         ref = find_clients(data_dir).get(cid)
@@ -50,7 +61,9 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
             raise HTTPException(404, "unknown client")
         return ref, EventStore(ref.db_path)
 
-    def back(cid: str, anchor: str, **params: str) -> RedirectResponse:
+    def back(cid: str, anchor: str, day: date | None = None, **params: str) -> RedirectResponse:
+        if day is not None and day != today():
+            params = {"day": day.isoformat(), **params}  # stay on the diary day the client was viewing
         q = urlencode({k: v for k, v in params.items() if v})
         return RedirectResponse(f"/c/{cid}" + (f"?{q}" if q else "") + f"#{anchor}", status_code=303)
 
@@ -67,21 +80,38 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
             raise ValueError("that date is in the future")
         return w
 
-    def _own_checkin(events, st, d):
-        """Today's check-in for the form; notes only if the client wrote them (coach notes stay private)."""
-        ci = next((c for c in st.checkins_recent if c["date"] == d), None)
-        if ci and ci.get("source") != Source.client.value:
-            ci = {**ci, "notes": None}
-        return ci
+    def diary_day(value: str) -> date:
+        """Diary date from the address bar: blank, malformed or future = today."""
+        try:
+            d = date.fromisoformat(value.strip()) if value.strip() else today()
+        except ValueError:
+            return today()
+        return min(d, today())
+
+    def day_entries(events, d: date) -> dict[str, Any]:
+        """What was logged on one diary day (latest wins per type, like the engine)."""
+        checkin = adherence = None
+        weigh_ins = []
+        for e in events:
+            if e.type == "weekly_checkin" and e.day == d:
+                checkin = dict(e.payload.model_dump(), source=e.source.value)
+                if e.source != Source.client:  # notes the coach typed stay private
+                    checkin["notes"] = None
+            elif e.type == "macro_adherence_logged" and e.payload.date == d:
+                adherence = e.payload.model_dump()
+            elif e.type == "weigh_in" and e.day == d:
+                weigh_ins.append({"weight": e.payload.weight, "unit": e.payload.unit})
+        return {"checkin": checkin, "daily_target": adherence, "weigh_ins": weigh_ins}
 
     @app.get("/", response_class=HTMLResponse)
     def pick(request: Request):
         return tpl.TemplateResponse(request, "pick.html", {"clients": list(find_clients(data_dir))})
 
     @app.get("/c/{cid}", response_class=HTMLResponse)
-    def home(request: Request, cid: str, error: str = "", notice: str = ""):
+    def home(request: Request, cid: str, day: str = "", error: str = "", notice: str = ""):
         _, store = client(cid)
         d = today()
+        shown = diary_day(day)
         events = store.read(cid)
         st = build_state(events, d, cfg)
         # Every weigh-in the client logged is shown; data-quality exclusions stay on the coach's chart.
@@ -100,7 +130,11 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
             "cid": cid, "today": d.isoformat(), "state": st,
             "chart": weight_svg(series, []), "series": series,
             "targets": targets, "changes": changes,
-            "checkin_today": _own_checkin(events, st, d),
+            "day": shown.isoformat(),
+            "prev_day": (shown - timedelta(days=1)).isoformat(),
+            "next_day": (shown + timedelta(days=1)).isoformat() if shown < d else None,
+            "entries": day_entries(events, shown),
+            "day_macros": build_state(events, shown, cfg).current_macros if shown != d else st.current_macros,
             "training_type": training_day_type(st.current_macros),
             "chat": ChatStore(store, "client").history(cid),
             "support": SupportStore(store).thread(cid),
@@ -123,28 +157,31 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
     async def daily_target(request: Request, cid: str):
         _, store = client(cid)
         form = await request.form()
+        d = None
         try:
-            d = when_or_today(str(form.get("when", "") or ""))
+            d = when_or_today(str(form.get("day", "") or ""))
             payload = adherence_payload(
                 d, form.get("hit") == "yes",
                 {name: str(form.get(f"off_{name}", "") or "") for name in MACRO_KEYS},
                 bool(form.get("non_training")), build_state(store.read(cid), d, cfg).current_macros)
             store.append([make_event(cid, "macro_adherence_logged", d, payload, Source.client)])
         except ValueError as exc:
-            return back(cid, "daily-target", error=f"Not saved: {error_text(exc)}")
-        return back(cid, "daily-target", notice="Daily target saved")
+            return back(cid, "diary", d, error=f"Not saved: {error_text(exc)}")
+        return back(cid, "diary", d, notice="Daily target saved")
 
     @app.post("/c/{cid}/checkin")
-    def checkin(cid: str, hunger: str = Form(""), energy: str = Form(""),
-                training_feel: str = Form(""), sleep_hours: str = Form(""), notes: str = Form("")):
+    def checkin(cid: str, hunger: str = Form(""), energy: str = Form(""), training_feel: str = Form(""),
+                sleep_hours: str = Form(""), notes: str = Form(""), day: str = Form("")):
         _, store = client(cid)
+        d = None
         try:
+            d = when_or_today(day)  # the diary day being viewed; blank = today
             payload = checkin_payload(hunger, energy, training_feel, sleep_hours, notes)
-            # always dated today; saving again today replaces it (latest wins)
-            store.append([make_event(cid, "weekly_checkin", today(), payload, Source.client)])
+            # saving again for the same day replaces it (latest wins)
+            store.append([make_event(cid, "weekly_checkin", d, payload, Source.client)])
         except ValueError as exc:
-            return back(cid, "checkin", error=f"Check-in not saved: {error_text(exc)}")
-        return back(cid, "checkin", notice="Check-in saved")
+            return back(cid, "diary", d, error=f"Check-in not saved: {error_text(exc)}")
+        return back(cid, "diary", d, notice="Check-in saved")
 
     @app.post("/c/{cid}/chat")
     def chat(cid: str, message: str = Form("")):
@@ -175,6 +212,6 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
         except ValueError as exc:
             return back(cid, "support", error=str(exc))
         SupportStore(store).add(cid, "client", text)
-        return back(cid, "support", notice="Message sent to your coach")
+        return back(cid, "support", notice="Message sent to support")
 
     return app

@@ -7,11 +7,46 @@
   <link rel="icon" href="{{ asset('logo') }}">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/app-static/client.css">
+  <link rel="stylesheet" href="/app-static/styles.css">
+  <script>/* fonts for each look come from Google Fonts, fetched only when a client picks that look */
+    window.mrjFonts = function (s) {
+      var f = {"studio-calm": "Fraunces:wght@600&family=Inter:wght@400;600",
+               "night-session": "Barlow+Condensed:wght@600&family=Inter:wght@400;600",
+               "retro-84": "Orbitron:wght@700&family=Space+Grotesk:wght@400;600"}[s];
+      if (!f || document.getElementById("font-" + s)) return;
+      var l = document.createElement("link"); l.id = "font-" + s; l.rel = "stylesheet";
+      l.href = "https://fonts.googleapis.com/css2?family=" + f + "&display=swap";
+      document.head.appendChild(l);
+    };</script>
+  <script>/* apply the saved look before the page paints (per device; nothing leaves the browser) */
+    try { var s = localStorage.getItem("mrj-style"), m = localStorage.getItem("mrj-mode");
+      if (s === "studio-calm" || s === "night-session" || s === "retro-84") {
+        document.documentElement.dataset.style = s; window.mrjFonts && mrjFonts(s); }
+      if (m === "light" || m === "dark") document.documentElement.dataset.theme = m; } catch (e) {}</script>
 </head>
 <body class="client-app">
   <header class="topbar">
     <a class="brand" href="/"><img src="{{ asset('logo') }}" alt="" width="32" height="32"><span>Mr. J</span></a>
-    {% block topbar %}{% endblock %}
+    <div class="topbar-right">
+      {% block topbar %}{% endblock %}
+      <details class="settings">
+        <summary aria-label="Settings" title="Settings"><span aria-hidden="true">&#9881;</span> Settings</summary>
+        <div class="settings-panel">
+          <fieldset><legend>Look</legend>
+            {% for value, label, note in client_styles %}
+            <label class="style-option"><input type="radio" name="style" value="{{ value }}"{% if loop.first %} checked{% endif %}>
+              <span class="swatch swatch-{{ value }}" aria-hidden="true"></span><span>{{ label }}<br><span class="small muted">{{ note }}</span></span></label>
+            {% endfor %}
+          </fieldset>
+          <fieldset class="mode-set"><legend>Light or dark <span class="small muted">(Classic look)</span></legend>
+            <label><input type="radio" name="mode" value="auto" checked> Match my device</label>
+            <label><input type="radio" name="mode" value="light"> Light</label>
+            <label><input type="radio" name="mode" value="dark"> Dark</label>
+          </fieldset>
+          <p class="small muted">Saved on this device only. Looks other than Classic load their fonts from Google Fonts.</p>
+        </div>
+      </details>
+    </div>
   </header>
   {% block nav %}{% endblock %}
   <main>{% block main %}{% endblock %}</main>

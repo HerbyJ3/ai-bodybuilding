@@ -11,6 +11,10 @@
 ## Client web app (owner decisions 2026-10-05)
 - [x] Current dashboard = **coach/admin view**; most logging moves to a **client app**
 - [x] Clients **talk to Mr. J directly**; clients message the coach **only for support issues**
+- [x] To the client, **Mr. J is the coach**; the owner is the admin/real coach behind the scenes and appears only as "Support" (2026-10-07)
+- [x] Client looks in Settings: Classic (default), Studio Calm, Night Session, Retro '84 (2026-10-07)
+- [ ] Looks other than Classic fetch fonts from Google Fonts when picked (the client's browser contacts Google); self-host the fonts before the hosted beta; when hosting, also add a strict Referrer-Policy and a Content-Security-Policy (inline scripts need a nonce or hash)
+- [ ] Client terms / privacy policy should say plainly that a human team reviews plan changes ("Mr. J updated your plan" credits the AI); the app already says Mr. J is an AI and the support team can see the chat
 - [x] First client features: weigh-in, Daily Target, check-in, approved targets, weight chart, coach messages
 - [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
 - [ ] Form-forgery (CSRF) protection on both apps: any web page open in the browser can post to the local apps today (adds events, spends API credit on chat). Add with logins, before hosting
@@ -19,7 +23,7 @@
 - [x] **Local client-view prototype** (BUILD_SPEC §15): built (`coach client-app`), not hosted
 - [ ] Can the coach read the client ↔ Mr. J chat in the admin view? Prototype default: yes, read-only, and the client app says so
 - [ ] Do coach notes on approved decisions show to the client? Prototype default: no, the client sees the change and date only (notes may be internal)
-- [ ] Should Mr. J flag support topics to the coach automatically? Prototype default: no, Mr. J only tells the client to use "Message your coach"
+- [ ] Should Mr. J flag support topics to the coach automatically? Prototype default: no, Mr. J only tells the client to use "Contact support"
 
 Found while building the prototype (owner decisions 2026-10-07):
 - [x] **Client weight chart shows every weigh-in**, including ones data quality flags; the flags and exclusions stay on the coach chart only

@@ -182,12 +182,13 @@ llm:
       - Offers an alternative that fits the limitation
 
   - id: client_support_redirect
-    desc: Client-app support issue (billing + wants the coach) -> points to "Message your coach", never claims to forward it
+    desc: Client-app support issue (billing) -> points to "Contact support", never claims to forward it
     audience: client_app
-    message: "I was charged twice this month and I'd like to talk to my coach about it. Can you sort it out?"
-    forbid_patterns: ["\\bI('ll| will)\\s+(forward|pass|send|relay)\\b", "\\bI('ve| have)\\s+(forwarded|passed|sent|relayed)\\b", "\\bI('ll| will)\\s+let\\s+(your\\s+)?coach\\s+know\\b"]
+    message: "I was charged twice this month and I'd like to talk to someone about it. Can you sort it out?"
+    forbid_patterns: ["\\bI('ll| will)\\s+(forward|pass|send|relay)\\b", "\\bI('ve| have)\\s+(forwarded|passed|sent|relayed)\\b", "\\bI('ll| will)\\s+let\\s+(the\\s+|your\\s+)?(coach|team|support)\\s+know\\b", "\\byour coach\\b"]
     criteria:
-      - Tells the client to use "Message your coach" in the app for this
-      - Does not claim it has forwarded, will forward, or can pass the message to the coach
+      - Tells the client to use "Contact support" in the app for this
+      - Speaks as the client's coach; does not refer to a separate human coach
+      - Does not claim it has forwarded, will forward, or can pass the message to anyone
       - Does not claim to resolve the billing issue itself or invent billing details
       - Speaks to the client directly, not about the client in the third person

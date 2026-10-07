@@ -8,6 +8,12 @@
   {%- if p|length == 3 and p[1]|int >= 1 and p[1]|int <= 12 -%}{{ months[p[1]|int - 1] }} {{ p[2]|int }}, {{ p[0] }}{%- else -%}{{ iso }}{%- endif -%}
 {%- endmacro %}
 
+{% macro day_title(iso) -%}
+  {%- set months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] -%}
+  {%- set p = (iso or "")[:10].split("-") -%}
+  {{- weekday(iso) }}, {{ months[p[1]|int - 1] }} {{ p[2]|int }}, {{ p[0] -}}
+{%- endmacro %}
+
 {% macro day_label(code) -%}
   {%- if code == "non_training" -%}Rest day
   {%- else -%}Training day{% if code %} ({{ code|replace("_", " ") }}){% endif %}
@@ -54,7 +60,7 @@
 
 {% block nav %}
 <nav class="section-nav" aria-label="Sections">
-  <a href="#today">Today</a><a href="#targets">Targets</a><a href="#chart">Weight</a><a href="#chat">Mr. J</a><a href="#support">Coach</a>
+  <a href="#weigh-in">Weigh-in</a><a href="#diary">Diary</a><a href="#targets">Targets</a><a href="#chart">Weight</a><a href="#chat">Mr. J</a><a href="#support">Support</a>
 </nav>
 {% if error or notice %}
 <div class="banners">
@@ -86,44 +92,84 @@
       <button>Save weigh-in</button>
     </form>
   </section>
+</section>
 
-  <section class="card" id="daily-target">
-    <h2>Did you hit your targets today?</h2>
+{% set dm = day_macros or {} %}
+{% set dtm_type = (dm.keys()|reject("equalto", "non_training")|list|first) if dm else none %}
+{% set dtm = dm.get(dtm_type) if dtm_type else none %}
+{% set drm = dm.get("non_training") %}
+{% set dt = entries.daily_target %}
+{% set ci = entries.checkin or {} %}{% set lv = {1: "low", 2: "low", 3: "mid", 4: "high", 5: "high"} %}
+{% set lvname = {1: "Low", 2: "Low", 3: "Mid", 4: "High", 5: "High"} %}
+{% set feel = {"crap": "Rough", "good": "Good", "fantastic": "Great"} %}
+<section class="card diary" id="diary">
+  <h2>Your diary</h2>
+  <div class="date-bar">
+    <a class="day-step" href="/c/{{ cid }}?day={{ prev_day }}#diary" aria-label="Previous day">&#9664;</a>
+    <form method="get" action="/c/{{ cid }}" class="day-pick">
+      <label class="sr-only" for="day-input">Diary date</label>
+      <span class="day-name">{{ day_title(day) }}{% if day == today %} · today{% endif %}</span>
+      <input id="day-input" type="date" name="day" value="{{ day }}" max="{{ today }}" aria-label="Pick a date">
+      <noscript><button class="small">Go</button></noscript>
+    </form>
+    {% if next_day %}<a class="day-step" href="/c/{{ cid }}?day={{ next_day }}#diary" aria-label="Next day">&#9654;</a>
+    {% else %}<span class="day-step off" aria-hidden="true">&#9654;</span>{% endif %}
+  </div>
+
+  <table class="diary-table">
+    <thead><tr><th scope="col">Entry</th><th scope="col">What you logged</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Weigh-in</th>
+        <td>{% if entries.weigh_ins %}{% for w in entries.weigh_ins %}{{ w.weight }} {{ w.unit }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">–</span>{% endif %}</td></tr>
+      <tr><th scope="row">Daily target</th>
+        <td>{% if dt %}{{ "Hit" if dt.hit else "Missed" }}{% if dt.day_type == "non_training" %} · rest day{% endif %}
+          {%- if not dt.hit and dt.off_by %}: {% for k, g in dt.off_by.items() %}{{ k|replace("_g", "")|replace("carb", "carbs") }} {{ "%+d"|format(g) }} g{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+          {% else %}<span class="muted">–</span>{% endif %}</td></tr>
+      <tr><th scope="row">Check-in</th>
+        <td>{% if entries.checkin %}Hunger {{ lvname.get(ci.hunger, "–") }}, energy {{ lvname.get(ci.energy, "–") }}
+          {%- if ci.training_feel %}, training {{ feel.get(ci.training_feel, ci.training_feel)|lower }}{% endif %}
+          {%- if ci.sleep_hours %}, slept {{ ci.sleep_hours|int }} h{% endif %}
+          {%- if ci.notes %}<br><span class="small">“{{ ci.notes }}”</span>{% endif %}
+          {% else %}<span class="muted">–</span>{% endif %}</td></tr>
+    </tbody>
+  </table>
+
+  <section class="diary-entry" id="daily-target">
+    <h3>Did you hit your targets{% if day == today %} today{% else %} on {{ nice_date(day) }}{% endif %}?</h3>
     <form method="post" action="/c/{{ cid }}/daily-target" class="stack daily-form">
+      <input type="hidden" name="day" value="{{ day }}">
       <fieldset class="choice">
         <legend class="sr-only">Did you hit your targets?</legend>
-        <label><input type="radio" name="hit" value="yes" checked> Yes</label>
-        <label><input type="radio" name="hit" value="no"> No</label>
+        <label><input type="radio" name="hit" value="yes"{% if not dt or dt.hit %} checked{% endif %}> Yes</label>
+        <label><input type="radio" name="hit" value="no"{% if dt and not dt.hit %} checked{% endif %}> No</label>
       </fieldset>
-      <label class="check"><input type="checkbox" name="non_training" value="1" class="rest-day"{% if not rm %} disabled{% endif %}> It was a rest day (no training)</label>
+      <label class="check"><input type="checkbox" name="non_training" value="1" class="rest-day"{% if dt and dt.day_type == "non_training" %} checked{% endif %}{% if not drm %} disabled{% endif %}> It was a rest day (no training)</label>
       <p class="small muted target-line"
-         data-training="{% if tm %}Training-day targets: {{ tm.protein_g }} g protein, {{ tm.carb_g }} g carbs, {{ tm.fat_g }} g fat{% else %}No training-day targets yet{% endif %}"
-         data-rest="{% if rm %}Rest-day targets: {{ rm.protein_g }} g protein, {{ rm.carb_g }} g carbs, {{ rm.fat_g }} g fat{% endif %}">
-        {%- if tm %}Training-day targets: {{ tm.protein_g }} g protein, {{ tm.carb_g }} g carbs, {{ tm.fat_g }} g fat{% else %}No training-day targets yet{% endif -%}
+         data-training="{% if dtm %}Training-day targets: {{ dtm.protein_g|round|int }} g protein, {{ dtm.carb_g|round|int }} g carbs, {{ dtm.fat_g|round|int }} g fat{% else %}No training-day targets yet{% endif %}"
+         data-rest="{% if drm %}Rest-day targets: {{ drm.protein_g|round|int }} g protein, {{ drm.carb_g|round|int }} g carbs, {{ drm.fat_g|round|int }} g fat{% endif %}">
+        {%- if dtm %}Training-day targets: {{ dtm.protein_g|round|int }} g protein, {{ dtm.carb_g|round|int }} g carbs, {{ dtm.fat_g|round|int }} g fat{% else %}No training-day targets yet{% endif -%}
       </p>
       <div class="off-by">
         <p class="small">If you missed, roughly how far off were you?</p>
         <div class="grid-3">
-        {% for name in ["protein", "carbs", "fat"] %}
+        {% for name, key in [("protein", "protein_g"), ("carbs", "carb_g"), ("fat", "fat_g")] %}
+          {% set cur = dt.off_by.get(key) if dt and dt.off_by else none %}
           <label>{{ name|capitalize }}
             <select name="off_{{ name }}"><option value="">On target</option>
-              {% for g in off_by_choices %}<option value="{{ g }}">{{ g|abs }} g {{ "over" if g > 0 else "under" }}</option>{% endfor %}
+              {% for g in off_by_choices %}<option value="{{ g }}"{% if cur is not none and cur == g %} selected{% endif %}>{{ g|abs }} g {{ "over" if g > 0 else "under" }}</option>{% endfor %}
             </select></label>
         {% endfor %}
         </div>
       </div>
-      <details class="earlier"><summary>Logging an earlier day?</summary>
-        <label>Date <input type="date" name="when" max="{{ today }}"></label>
-      </details>
-      <button>Save</button>
+      <button>{{ "Update" if dt else "Save" }}</button>
     </form>
   </section>
 
-  <section class="card" id="checkin">
-    {% set ci = checkin_today or {} %}{% set lv = {1: "low", 3: "mid", 5: "high"} %}
-    <h2>How are you feeling?</h2>
-    {% if checkin_today %}<p class="small muted">Saved for today. Save again to update it.</p>{% else %}<p class="small muted">A quick check-in for today. Hunger and energy are needed; the rest is optional.</p>{% endif %}
+  <section class="diary-entry" id="checkin">
+    <h3>How {% if day == today %}are you{% else %}were you{% endif %} feeling?</h3>
+    {% if entries.checkin %}<p class="small muted">Saved for this day. Save again to update it.</p>{% else %}<p class="small muted">A quick check-in. Hunger and energy are needed; the rest is optional.</p>{% endif %}
     <form method="post" action="/c/{{ cid }}/checkin" class="stack checkin-form">
+      <input type="hidden" name="day" value="{{ day }}">
       {% macro dropdown(label, name, options, current, required=false) %}
       <label>{{ label }}
         <span class="field"><select name="{{ name }}"{% if required %} required{% endif %}>
@@ -145,7 +191,7 @@
 
 <section class="card" id="targets">
   <h2>Your targets</h2>
-  {% if not targets %}<p class="muted">Your coach hasn't set your targets yet.</p>{% endif %}
+  {% if not targets %}<p class="muted">Mr. J hasn't set your targets yet.</p>{% endif %}
   {% for t in targets %}
   <div class="target">
     <h3>{{ day_label(t.day_type) }}{% if t.day_type == training_type and rm %} <span class="muted small">use on training days</span>{% endif %}</h3>
@@ -157,9 +203,9 @@
     </dl>
   </div>
   {% endfor %}
-  <h3 class="subsection">Changes from your coach</h3>
+  <h3 class="subsection">Changes from Mr. J</h3>
   {% if not changes %}<p class="muted">No changes yet.</p>{% endif %}
-  <ul class="changes">{% for c in changes %}<li>On {{ nice_date(c.date) }} your coach approved: <strong>{{ change_text(c) }}</strong></li>{% endfor %}</ul>
+  <ul class="changes">{% for c in changes %}<li>On {{ nice_date(c.date) }} Mr. J updated your plan: <strong>{{ change_text(c) }}</strong></li>{% endfor %}</ul>
 </section>
 
 <section class="card" id="chart">
@@ -178,9 +224,9 @@
 
 <section class="card chat" id="chat">
   <h2>Chat with Mr. J</h2>
-  <p class="muted small">Your coach can see this chat. Mr. J runs on Claude, an AI service from Anthropic, so your messages are sent there to be answered.</p>
+  <p class="muted small">Mr. J is your AI coach. He runs on Claude, an AI service from Anthropic, so your messages are sent there to be answered. Our support team can also see this chat.</p>
   <div class="messages">
-    {% if not chat %}<p class="muted">Ask Mr. J about your plan, your targets or a change your coach approved.</p>{% endif %}
+    {% if not chat %}<p class="muted">Ask Mr. J about your plan, your targets or a recent change.</p>{% endif %}
     {% for m in chat %}<div class="msg {{ 'user' if m.role == 'user' else 'assistant' }}"><div class="msg-body">{{ m.content }}</div></div>{% endfor %}
   </div>
   <form method="post" action="/c/{{ cid }}/chat" class="stack">
@@ -191,21 +237,21 @@
 </section>
 
 <section class="card chat" id="support">
-  <h2>Message your coach</h2>
-  <p class="muted small">For questions about your plan, ask Mr. J. Use this for anything else you need your coach for.</p>
+  <h2>Contact support</h2>
+  <p class="muted small">For questions about your plan, training or food, ask Mr. J. Use this for anything else: billing, scheduling, problems with the app, or if you're hurt.</p>
   <div class="messages">
     {% if not support %}<p class="muted">No messages yet.</p>{% endif %}
     {% for m in support %}
     <div class="msg {{ 'user' if m.sender == 'client' else 'assistant' }}">
-      <div class="msg-meta small">{{ sent_line(m, "You" if m.sender == "client" else "Coach") }}{% if m.sender == "client" and m.read_at %} · Seen{% endif %}</div>
+      <div class="msg-meta small">{{ sent_line(m, "You" if m.sender == "client" else "Support") }}{% if m.sender == "client" and m.read_at %} · Seen{% endif %}</div>
       <div class="msg-body">{{ m.content }}</div>
     </div>
     {% endfor %}
   </div>
   <form method="post" action="/c/{{ cid }}/support" class="stack">
-    <label class="sr-only" for="support-message">Message to your coach</label>
-    <textarea id="support-message" name="message" rows="3" maxlength="4000" required placeholder="Write to your coach…"></textarea>
-    <button>Send to coach</button>
+    <label class="sr-only" for="support-message">Message to support</label>
+    <textarea id="support-message" name="message" rows="3" maxlength="4000" required placeholder="Write to support…"></textarea>
+    <button>Send to support</button>
   </form>
 </section>
 {% endblock %}

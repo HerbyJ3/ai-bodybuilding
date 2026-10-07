@@ -51,3 +51,32 @@ document.querySelectorAll("time.local-time").forEach(t => {
   if (!isNaN(d)) t.textContent = d.toLocaleString(undefined,
     {month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit"});
 });
+
+// Diary: picking a date in the calendar opens that day.
+const dayInput = document.getElementById("day-input");
+if (dayInput) dayInput.addEventListener("change", () => { if (dayInput.value) dayInput.form.submit(); });
+
+// Settings: look (colour style) and light/dark, remembered on this device only.
+(function () {
+  const root = document.documentElement;
+  const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode: not saved */ } };
+  const panel = document.querySelector(".settings");
+  if (!panel) return;
+  const style = read("mrj-style") || "classic", mode = read("mrj-mode") || "auto";
+  panel.querySelectorAll('input[name="style"]').forEach(r => {
+    r.checked = r.value === style;
+    r.addEventListener("change", () => {
+      if (r.value === "classic") delete root.dataset.style;
+      else { root.dataset.style = r.value; if (window.mrjFonts) window.mrjFonts(r.value); }
+      save("mrj-style", r.value);
+    });
+  });
+  panel.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.checked = r.value === mode;
+    r.addEventListener("change", () => {
+      if (r.value === "auto") delete root.dataset.theme; else root.dataset.theme = r.value;
+      save("mrj-mode", r.value);
+    });
+  });
+})();
