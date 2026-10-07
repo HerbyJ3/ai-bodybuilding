@@ -33,6 +33,10 @@ Found while building the prototype (owner decisions 2026-10-07):
 - [ ] Engine's short reason for each change is still given to client Mr. J (owner did not ask to hide it; revisit if it reads as internal)
 - [ ] **Before hosting** (with logins): client ids must not be real names, and the client pick page must sit behind logins; the confirmation banner text comes from the web address today, switch to fixed message codes; history-review findings still steer which book passages client Mr. J looks up (low risk, findings themselves are not shown)
 
+## Phase length (owner 2026-10-07)
+- [x] A phase's planned length (`planned_weeks`) is **optional**. The 12-week cut in the owner's test record was a guess made during conversion (from an outside AI conversation about a reset break at ~12 weeks), not part of the plan or the knowledge base; it was removed. Ending a cut still follows the book limits in `knowledge/nutrition-defaults.json`
+- [ ] Approving a phase transition in the queue still asks for `planned_weeks` (`approvals/queue.py`); make it optional there too if the owner wants
+
 ## Deferred
 - [ ] Cold-start approach (BUILD_SPEC §13.5). Owner (2026-10-03): not needed soon; onboarding is mainly for reviewing and improving on existing history. Current code stays as a placeholder (gate applies to onboarded clients only, imported history counts, recovery held + flagged). Revisit before onboarding live clients
 

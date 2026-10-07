@@ -122,7 +122,7 @@ class CardioLogged(_Payload):
 class PhaseStarted(_Payload):
     phase: PhaseName
     target_rate_pct_bw: float = Field(ge=0)
-    planned_weeks: int = Field(gt=0)
+    planned_weeks: int | None = Field(default=None, gt=0)  # optional: not every plan has a set length
 
 
 class MesoStarted(_Payload):

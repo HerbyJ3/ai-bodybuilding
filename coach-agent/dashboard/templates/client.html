@@ -6,7 +6,7 @@
   <div>
     <p class="muted"><a href="/?as_of={{ as_of }}">Clients</a> /</p>
     <h1>{{ cid }}</h1>
-    <p class="muted">{% if st.phase %}{{ st.phase.phase|capitalize }} · week {{ st.phase.week }} of {{ st.phase.planned_weeks }} · target {{ st.phase.target_rate_pct_bw }}% BW/week{% else %}No phase set{% endif %}</p>
+    <p class="muted">{% if st.phase %}{{ st.phase.phase|capitalize }} · week {{ st.phase.week }}{% if st.phase.planned_weeks %} of {{ st.phase.planned_weeks }}{% endif %} · target {{ st.phase.target_rate_pct_bw }}% BW/week{% else %}No phase set{% endif %}</p>
   </div>
   <form method="get" class="inline"><label>As of <input type="date" name="as_of" value="{{ as_of }}"></label><button class="ghost">Update</button></form>
 </section>

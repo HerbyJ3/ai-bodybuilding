@@ -142,7 +142,7 @@ def build_onboarding_events(oc: OnboardingConfig, imported: list[Event], cfg: Co
     warnings: list[str] = []
     ph = oc.phase
     phase_start = as_of - timedelta(days=7 * (ph.current_phase_week - 1))
-    if ph.current_phase_week > ph.planned_weeks:
+    if ph.planned_weeks is not None and ph.current_phase_week > ph.planned_weeks:
         warnings.append(f"phase week {ph.current_phase_week} > planned {ph.planned_weeks}")
 
     meso_events, meso_info, meso_start = _current_meso(oc, imported, cfg, recorded_at, warnings)

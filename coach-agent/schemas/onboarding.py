@@ -21,7 +21,7 @@ class ConsentInput(_In):
 class PhaseInput(_In):
     phase: PhaseName
     target_rate_pct_bw: float = Field(ge=0)
-    planned_weeks: int = Field(gt=0)
+    planned_weeks: int | None = Field(default=None, gt=0)  # optional (owner 2026-10-07)
     current_phase_week: int = Field(ge=1)
 
 
@@ -45,7 +45,7 @@ class PastPhaseInput(_In):
     phase: PhaseName
     start_date: date
     target_rate_pct_bw: float = Field(ge=0)
-    planned_weeks: int = Field(gt=0)
+    planned_weeks: int | None = Field(default=None, gt=0)  # optional (owner 2026-10-07)
 
 
 class LimitationInput(_In):

@@ -261,3 +261,22 @@ def test_cli_onboard(tmp_path):
     r = CliRunner().invoke(app, ["import-csv", "NOBODY", str(SAMPLE), str(SAMPLE / "mapping.json"),
                                  "--db", str(db)])
     assert r.exit_code == 1
+
+
+def test_phase_without_planned_length(cfg):
+    # Not every plan has a set length (owner 2026-10-07): the phase still starts, week still counts.
+    raw = json.loads((SAMPLE / "onboarding.json").read_text())
+    raw["phase"].pop("planned_weeks")
+    for p in raw.get("past_phases", []):
+        p.pop("planned_weeks", None)
+    from schemas.onboarding import OnboardingConfig
+    oc = OnboardingConfig.model_validate(raw)
+    store = EventStore()
+    onboard(store, oc, cfg, base_dir=SAMPLE)
+    phases = [e for e in store.read(CID) if e.type == "phase_started"]
+    assert phases and all(e.payload.planned_weeks is None for e in phases)
+    st = build_state(store.read(CID), oc.as_of, cfg)
+    assert st.phase.planned_weeks is None and st.phase.week == oc.phase.current_phase_week
+    from llm import prompt_builder
+    prof = prompt_builder.user_profile(st)
+    assert "planned_weeks" not in prof["phase"] and prof["phase"]["week"] == oc.phase.current_phase_week
