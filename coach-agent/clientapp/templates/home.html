@@ -76,7 +76,7 @@
     <h2>Weigh-in</h2>
     <form method="post" action="/c/{{ cid }}/weigh-in" class="stack">
       <div class="weight-row">
-        <label>Weight <input name="weight" type="number" step="any" inputmode="decimal" required></label>
+        <label>Weight <input name="weight" type="number" step="any" min="50" max="700" inputmode="decimal" required></label>
         <label>Unit <select name="unit"><option value="lb">lb</option><option value="kg">kg</option></select></label>
       </div>
       <label>How did you weigh in? <input name="conditions" placeholder="optional, e.g. after waking, before food"></label>

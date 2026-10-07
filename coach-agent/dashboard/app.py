@@ -93,8 +93,19 @@ def adherence_payload(when: date, hit: bool, off: dict[str, str], non_training: 
 
 
 def error_text(exc: Exception) -> str:
-    """Last line of a (pydantic) error: the readable part."""
-    return str(exc).strip().splitlines()[-1].strip() if str(exc).strip() else exc.__class__.__name__
+    """The readable part of an error: a pydantic error's first message (field: reason), otherwise
+    the last line, skipping pydantic's 'For further information visit <url>' footer."""
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        try:
+            first = errors()[0]
+            field = ".".join(str(p) for p in first.get("loc", ()))
+            return f"{field}: {first['msg']}" if field else str(first["msg"])
+        except Exception:  # not a pydantic error after all: fall back to the text
+            pass
+    lines = [ln.strip() for ln in str(exc).strip().splitlines()
+             if ln.strip() and not ln.strip().startswith("For further information")]
+    return lines[-1] if lines else exc.__class__.__name__
 
 
 def level_name(v: Any) -> str:
@@ -295,8 +306,7 @@ def create_app(data_dir: Path, cfg: Config | None = None,
             ev = make_event(cid, "macro_adherence_logged", when, payload, Source.coach)
             store.append([ev])
         except ValueError as exc:
-            msg = str(exc).split("\n")[-1] if "validation" in str(exc).lower() else str(exc)
-            return back(cid, as_of, "macros", error=f"not saved: {msg.strip()}")
+            return back(cid, as_of, "macros", error=f"not saved: {error_text(exc)}")
         return back(cid, as_of, "macros", notice="Daily target logged")
 
     @app.post("/client/{cid}/import-mfp")
