@@ -59,7 +59,7 @@ def test_home_renders_all_sections(env):
     client, _, _ = env
     r = client.get(f"/c/{CID}")
     assert r.status_code == 200
-    for anchor in ("weigh-in", "daily-target", "checkin", "targets", "chart", "chat", "support"):
+    for anchor in ("weigh-in", "diary", "daily-target", "checkin", "targets", "chart", "chat", "support"):
         assert f'id="{anchor}"' in r.text, anchor
     assert '<svg class="chart"' in r.text and 'id="weight-data"' in r.text
     assert 'name="non_training"' in r.text and "2026-09-28" in r.text
@@ -162,13 +162,14 @@ def test_weigh_in_past_date_ok_future_and_bad_rejected(env):
 def test_daily_target_hit_and_missed(env, cfg):
     client, _, db = env
     before = ids(db)
-    post(client, "daily-target", {"hit": "yes"}, "daily-target")
+    assert "day=" not in post(client, "daily-target", {"hit": "yes"}, "diary")  # today: plain diary
     (ev,) = new_events(db, before, "macro_adherence_logged")
     assert ev.source == Source.client and ev.payload.date == TODAY and ev.payload.hit
     assert ev.payload.day_type == "moderate"  # training-day targets by default
     before = ids(db)
-    post(client, "daily-target", {"hit": "no", "off_carbs": "-30", "non_training": "1",
-                                  "when": "2026-09-27"}, "daily-target")
+    loc = post(client, "daily-target", {"hit": "no", "off_carbs": "-30", "non_training": "1",
+                                        "day": "2026-09-27"}, "diary")
+    assert "day=2026-09-27" in loc  # back to the diary day being viewed
     (ev,) = new_events(db, before, "macro_adherence_logged")
     assert ev.payload.date == date(2026, 9, 27) and not ev.payload.hit
     assert ev.payload.off_by == {"carb_g": -30} and ev.payload.day_type == "non_training"
@@ -177,31 +178,38 @@ def test_daily_target_hit_and_missed(env, cfg):
 def test_daily_target_rejects_bad_input(env):
     client, _, db = env
     before = ids(db)
-    for data in ({"hit": "no"}, {"hit": "yes", "when": "2026-09-30"}, {"hit": "no", "off_fat": "nan"}):
-        assert "error=" in post(client, "daily-target", data, "daily-target"), data
+    for data in ({"hit": "no"}, {"hit": "yes", "day": "2026-09-30"}, {"hit": "no", "off_fat": "nan"}):
+        assert "error=" in post(client, "daily-target", data, "diary"), data
     assert new_events(db, before, "macro_adherence_logged") == []
 
 
-def test_checkin_dated_today_and_replaced_same_day(env, cfg):
+def test_checkin_dated_by_diary_day_and_replaced_same_day(env, cfg):
     client, _, db = env
     before = ids(db)
     post(client, "checkin", {"hunger": "high", "energy": "low", "sleep_hours": "6",
-                             "training_feel": "good", "when": "2026-09-01"}, "checkin")
+                             "training_feel": "good"}, "diary")
     (ev,) = new_events(db, before, "weekly_checkin")
-    assert ev.day == TODAY and ev.source == Source.client  # a stray date field is ignored
-    post(client, "checkin", {"hunger": "mid", "energy": "high", "notes": "better"}, "checkin")
+    assert ev.day == TODAY and ev.source == Source.client  # no diary day = today
+    post(client, "checkin", {"hunger": "mid", "energy": "high", "notes": "better"}, "diary")
     st = build_state(EventStore(db).read(CID), TODAY, cfg)
     today_ci = [c for c in st.checkins_recent if c["date"] == TODAY]
     assert len(today_ci) == 1 and today_ci[0]["hunger"] == 3 and today_ci[0]["notes"] == "better"
-    assert "Saved for today" in client.get(f"/c/{CID}").text
+    assert "Saved for this day" in client.get(f"/c/{CID}").text
+    before = ids(db)
+    assert "day=2026-09-20" in post(client, "checkin", {"hunger": "low", "energy": "low",
+                                                        "day": "2026-09-20"}, "diary")
+    (ev,) = new_events(db, before, "weekly_checkin")
+    assert ev.day == date(2026, 9, 20)
 
 
-def test_checkin_rejects_bad_levels(env):
+def test_checkin_rejects_bad_levels_and_future_day(env):
     client, _, db = env
     before = ids(db)
-    assert "error=" in post(client, "checkin", {"hunger": "starving", "energy": "mid"}, "checkin")
+    assert "error=" in post(client, "checkin", {"hunger": "starving", "energy": "mid"}, "diary")
     assert "error=" in post(client, "checkin", {"hunger": "mid", "energy": "mid", "sleep_hours": "x"},
-                            "checkin")
+                            "diary")
+    assert "error=" in post(client, "checkin", {"hunger": "mid", "energy": "mid", "day": "2026-09-29"},
+                            "diary")
     assert new_events(db, before, "weekly_checkin") == []
 
 

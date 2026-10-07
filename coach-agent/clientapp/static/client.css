@@ -82,3 +82,25 @@
   border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; color: var(--ink); text-decoration: none; font-weight: 600; }
 .pick-list a:hover, .pick-list a:focus-visible { border-color: var(--accent); }
 .daily-form .target-line { margin: 0; }
+
+/* Diary: date bar in the style of a food diary (prev / date / next) */
+.diary .date-bar { display: flex; align-items: stretch; gap: 0; margin: .5rem 0 1rem;
+  border-radius: 10px; overflow: hidden; background: var(--accent); color: var(--accent-ink); }
+.diary .day-step { display: flex; align-items: center; justify-content: center; min-width: 44px;
+  min-height: 44px; color: var(--accent-ink); text-decoration: none; font-size: 1rem; background: rgba(0,0,0,.15); }
+.diary .day-step:hover { background: rgba(0,0,0,.3); }
+.diary .day-step.off { opacity: .35; }
+.diary .day-pick { flex: 1; display: flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .25rem .5rem; flex-wrap: wrap; }
+.diary .day-name { font-weight: 700; text-align: center; }
+.diary .day-pick input[type="date"] { width: 2.4rem; min-height: 36px; padding: 0 .2rem; border-radius: 6px;
+  border: 0; color: transparent; background: #fff; cursor: pointer; color-scheme: light; }
+.diary .day-pick input[type="date"]::-webkit-datetime-edit { display: none; }
+.diary-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: .95rem; }
+.diary-table th, .diary-table td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid var(--line);
+  vertical-align: top; }
+.diary-table thead th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--accent); color: var(--accent-ink); }
+.diary-table tbody th { width: 34%; font-weight: 600; }
+.diary-entry { border-top: 1px solid var(--line); padding-top: .75rem; margin-top: .75rem; }
+.diary-entry h3 { margin-top: 0; }

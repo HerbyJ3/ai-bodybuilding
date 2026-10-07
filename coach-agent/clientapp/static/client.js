@@ -51,3 +51,7 @@ document.querySelectorAll("time.local-time").forEach(t => {
   if (!isNaN(d)) t.textContent = d.toLocaleString(undefined,
     {month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit"});
 });
+
+// Diary: picking a date in the calendar opens that day.
+const dayInput = document.getElementById("day-input");
+if (dayInput) dayInput.addEventListener("change", () => { if (dayInput.value) dayInput.form.submit(); });

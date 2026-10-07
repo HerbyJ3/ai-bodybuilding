@@ -123,16 +123,20 @@ def test_client_audience_block_only_in_client_prompt(store, cfg):
     assert _audience_session(store, cfg, "client").system == open_session(  # default is "client"
         store, cfg, CID, AS_OF, ClaudeClient(llm_settings(), client=FakeAnthropic([]))).system
     common = ("is the **client**", "Speak to them directly", "approved changes",
-              "Never mention pending items", "coach reviews and decides plan changes", "billing",
-              "scheduling", "account questions", "talk to their coach", "pain or an injury",
-              "never say you will forward")
+              "Never mention pending items", "billing", "scheduling", "account questions",
+              "pain or an injury", "never say you will forward")
     flat_app, flat_client = " ".join(app.split()), " ".join(client.split())
-    for must in (*common, 'use **"Message your coach"** in the app', "problems with the app"):
+    for must in (*common, "you are their coach", "never refer to a separate coach",
+                 'use **"Contact support"** in the app', "problems with the app",
+                 "plan changes are made at check-ins", "never claim to be a person"):
         assert must in flat_app, must
-    for must in (*common, "contact their coach directly"):
+    block = " ".join(CLIENT_AUDIENCE.split())
+    assert "coach reviews" not in block and "talk to their coach" not in block and "your coach" not in block
+    for must in (*common, "coach reviews and decides plan changes", "talk to their coach",
+                 "contact their coach directly"):
         assert must in flat_client, must
     for prompt in (client, coach):  # app wording only where there is an app
-        assert "Message your coach" not in prompt and "in the app" not in prompt
+        assert "Contact support" not in prompt and "in the app" not in prompt
     with pytest.raises(ValueError):
         _audience_session(store, cfg, "public")
 
