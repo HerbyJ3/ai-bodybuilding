@@ -151,3 +151,36 @@ def test_cli_has_client_app_command():
     from ingest.cli import app
     r = CliRunner().invoke(app, ["client-app", "--help"])
     assert r.exit_code == 0 and "8766" in r.output and "--no-open" in r.output
+
+
+def test_migration_tolerates_column_added_by_other_app(tmp_path, monkeypatch):
+    # Dashboard and client app may open an old database at the same moment.
+    import sqlite3
+    from dashboard import store as store_mod
+    db = tmp_path / "race.db"
+    store = EventStore(db)
+    store._db.execute("CREATE TABLE chat_messages (id INTEGER PRIMARY KEY, client_id TEXT, role TEXT, "
+                      "kind TEXT, content TEXT, created_at TEXT)")
+    other = sqlite3.connect(db)
+    other.execute("ALTER TABLE chat_messages ADD COLUMN audience TEXT NOT NULL DEFAULT 'coach'")
+    other.commit()
+    real = store._db.execute
+
+    class StalePragma:  # this process still sees the old column list
+        def __getattr__(self, name):
+            return getattr(store._db_real, name)
+
+        def __enter__(self):
+            return store._db_real.__enter__()
+
+        def __exit__(self, *exc):
+            return store._db_real.__exit__(*exc)
+
+        def execute(self, sql, *a):
+            if sql.startswith("PRAGMA table_info"):
+                return [(0, "id"), (1, "client_id")]
+            return real(sql, *a)
+
+    store._db_real = store._db
+    store._db = StalePragma()
+    store_mod.ChatStore(store, "client")  # no "duplicate column" error

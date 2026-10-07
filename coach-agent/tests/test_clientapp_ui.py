@@ -156,3 +156,13 @@ def test_index_unread_badge(env):
     SupportStore(EventStore(db)).add(CID, "client", "one")
     SupportStore(EventStore(db)).add(CID, "client", "two")
     assert '<span class="pill unread">2 new messages</span>' in admin.get(f"/?as_of={AS_OF}").text
+
+
+def test_earlier_day_date_left_blank_so_server_today_applies(env):
+    # A page left open past midnight must not save to the day it was rendered.
+    client, _, _ = env
+    html = client.get(f"/c/{CID}").text
+    for path in ("weigh-in", "daily-target"):
+        f = form(html, f"/c/{CID}/{path}")
+        when = f.split('name="when"')[1].split(">")[0]
+        assert f'max="{TODAY.isoformat()}"' in when and "value=" not in when

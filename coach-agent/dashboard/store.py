@@ -76,9 +76,13 @@ class ChatStore:
         self.db.executescript(_CHAT_SCHEMA)
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(chat_messages)")}
         if "audience" not in cols:  # databases made before the client app: old rows are coach chat
-            with self.db:
-                self.db.execute("ALTER TABLE chat_messages "
-                                "ADD COLUMN audience TEXT NOT NULL DEFAULT 'coach'")
+            try:
+                with self.db:
+                    self.db.execute("ALTER TABLE chat_messages "
+                                    "ADD COLUMN audience TEXT NOT NULL DEFAULT 'coach'")
+            except sqlite3.OperationalError as exc:  # the other app added it first
+                if "duplicate column" not in str(exc):
+                    raise
 
     def history(self, client_id: str) -> list[dict]:
         rows = self.db.execute(

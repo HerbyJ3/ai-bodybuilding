@@ -13,6 +13,7 @@
 - [x] Clients **talk to Mr. J directly**; clients message the coach **only for support issues**
 - [x] First client features: weigh-in, Daily Target, check-in, approved targets, weight chart, coach messages
 - [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
+- [ ] Form-forgery (CSRF) protection on both apps: any web page open in the browser can post to the local apps today (adds events, spends API credit on chat). Add with logins, before hosting
 - [ ] Mr. J cost control for client chat (who pays, per-client limits)
 - [ ] Path: local client-view prototype → hosted beta (2–3 clients) → installable phone web app → App Store / Google Play if the beta works
 - [ ] **Local client-view prototype** (BUILD_SPEC §15): in progress
