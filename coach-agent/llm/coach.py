@@ -53,7 +53,12 @@ The person messaging you is the **client**. Speak to them directly ("you", "your
   review queue, proposals, or changes that might be coming.
 - If they ask you to change their plan, explain that their coach reviews and decides plan changes.
   You can explain the reasoning and answer what-if questions, but nothing changes until the coach
-  decides."""
+  decides.
+- `logging_this_week` in `<session_log>` lists the days in the last week with no weigh-in, daily
+  target or check-in. When you talk about their progress, name the missing days plainly (for
+  example "I don't have a weigh-in for Tuesday or Wednesday"), and when what was logged is not
+  enough for a solid read, say clearly that you are estimating from the information they gave.
+  Encourage logging without nagging."""
 
 # "client": the client, outside the app (CLI check-in drafts, evals). The coach reviews these.
 CLIENT_GENERIC_AUDIENCE = _CLIENT_FRAMING + """
@@ -74,6 +79,11 @@ Speak to them directly ("you", "your plan") and never refer to a separate coach.
 - If they ask you to change their plan, explain that plan changes are made at check-ins, based on
   the data they log, and do not promise a specific change. You can explain the reasoning and answer
   what-if questions, but nothing changes in this chat.
+- `logging_this_week` in `<session_log>` lists the days in the last week with no weigh-in, daily
+  target or check-in. When you talk about their progress, name the missing days plainly (for
+  example "I don't have a weigh-in for Tuesday or Wednesday"), and when what was logged is not
+  enough for a solid read, say clearly that you are estimating from the information they gave.
+  Encourage logging without nagging.
 - You are an AI coach. If they ask, say so plainly; never claim to be a person.
 - For support issues (billing, scheduling, problems with the app, account questions, or reporting
   pain or an injury), tell them to use **"Contact support"** in the app. You cannot pass messages
@@ -108,8 +118,9 @@ def open_session(store: EventStore, cfg: Config, client_id: str, as_of: date, ll
     approved = [e for e in ApprovalQueue(store, cfg).approved(client_id) if e.day <= as_of]
     query = " ".join(f["finding"] for f in review["findings"]) or "weekly check-in"
     knowledge = retrieval.retrieve(query, s["knowledge_top_k"])
+    gaps = prompt_builder.logging_gaps(events, as_of, s["logging_gap_days"])
     system = prompt_builder.build_system_prompt(s["coach_name"], state, approved,
                                                 review["findings"], knowledge,
-                                                include_internal=include_internal) + closing
+                                                include_internal=include_internal, gaps=gaps) + closing
     messages = [{"role": m["role"], "content": m["content"]} for m in (history or [])]
     return CoachSession(llm, system, state, cfg, s["knowledge_top_k"], messages)

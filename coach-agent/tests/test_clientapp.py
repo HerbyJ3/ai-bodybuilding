@@ -59,7 +59,7 @@ def test_home_renders_all_sections(env):
     client, _, _ = env
     r = client.get(f"/c/{CID}")
     assert r.status_code == 200
-    for anchor in ("weigh-in", "diary", "daily-target", "checkin", "targets", "chart", "chat", "support"):
+    for anchor in ("weigh-in", "diary", "daily-target", "cardio", "checkin", "targets", "chart", "chat", "support"):
         assert f'id="{anchor}"' in r.text, anchor
     assert '<svg class="chart"' in r.text and 'id="weight-data"' in r.text
     assert 'name="non_training"' in r.text and "2026-09-28" in r.text
@@ -72,7 +72,7 @@ def test_home_renders_all_sections(env):
 def test_unknown_client_404_everywhere(env):
     client, _, _ = env
     assert client.get("/c/NOPE").status_code == 404
-    for path in ("weigh-in", "daily-target", "checkin", "chat", "support"):
+    for path in ("weigh-in", "daily-target", "cardio", "checkin", "chat", "support"):
         assert client.post(f"/c/NOPE/{path}", data={"message": "x"}).status_code == 404, path
 
 
@@ -138,25 +138,59 @@ def test_coach_chat_and_support_isolation_on_page(env):
 def test_weigh_in_defaults_to_today_source_client(env):
     client, _, db = env
     before = ids(db)
-    loc = post(client, "weigh-in", {"weight": "185.4", "unit": "lb", "conditions": "fasted"}, "weigh-in")
-    assert "notice=" in loc
+    loc = post(client, "weigh-in", {"weight": "185.4", "unit": "lb", "conditions": "fasted"}, "diary")
+    assert "notice=" in loc and "day=" not in loc
     (ev,) = new_events(db, before, "weigh_in")
     assert ev.day == TODAY and ev.source == Source.client and ev.payload.weight == 185.4
 
 
-def test_weigh_in_past_date_ok_future_and_bad_rejected(env):
+def test_weigh_in_dated_by_log_day_future_and_bad_rejected(env):
     client, _, db = env
     before = ids(db)
-    post(client, "weigh-in", {"weight": "185", "unit": "lb", "when": "2026-09-27"}, "weigh-in")
-    assert [e.day for e in new_events(db, before, "weigh_in")] == [date(2026, 9, 27)]
+    assert "day=2026-09-27" in post(client, "weigh-in", {"weight": "185", "unit": "lb", "day": "2026-09-27"},
+                                    "diary")
+    post(client, "weigh-in", {"weight": "185.2", "unit": "lb", "when": "2026-09-26"}, "diary")  # older form field
+    assert sorted(e.day for e in new_events(db, before, "weigh_in")) == [date(2026, 9, 26), date(2026, 9, 27)]
     before = ids(db)
-    for data in ({"weight": "185", "unit": "lb", "when": "2026-09-29"},
-                 {"weight": "185", "unit": "lb", "when": "not-a-date"},
+    for data in ({"weight": "185", "unit": "lb", "day": "2026-09-29"},
+                 {"weight": "185", "unit": "lb", "day": "not-a-date"},
                  {"weight": "nan", "unit": "lb"}, {"weight": "inf", "unit": "lb"},
                  {"weight": "abc", "unit": "lb"}, {"weight": "-5", "unit": "lb"},
                  {"weight": "185", "unit": "stone"}):
-        assert "error=" in post(client, "weigh-in", data, "weigh-in"), data
+        assert "error=" in post(client, "weigh-in", data, "diary"), data
     assert new_events(db, before, "weigh_in") == []
+
+
+def test_cardio_logged_with_incline_and_speed(env):
+    client, _, db = env
+    before = ids(db)
+    loc = post(client, "cardio", {"modality": "treadmill_incline_walk", "minutes": "35", "kcal": "280",
+                                  "effort": "easy", "incline": "5", "speed": "2.0", "day": "2026-09-27"}, "diary")
+    assert "notice=Cardio+saved" in loc and "day=2026-09-27" in loc
+    (ev,) = new_events(db, before, "cardio_logged")
+    p = ev.payload
+    assert ev.source == Source.client and p.date == date(2026, 9, 27) and p.modality == "treadmill_incline_walk"
+    assert (p.minutes, p.est_kcal, p.intensity, p.incline_pct, p.speed_mph) == (35, 280, "low", 5, 2.0)
+    before = ids(db)
+    post(client, "cardio", {"modality": "bike", "minutes": "20", "incline": "8", "speed": "3"}, "diary")
+    (ev,) = new_events(db, before, "cardio_logged")  # incline/speed ignored for other types; kcal optional
+    assert (ev.payload.incline_pct, ev.payload.speed_mph, ev.payload.est_kcal, ev.payload.intensity) == (
+        None, None, None, "mod")
+    assert ev.day == TODAY
+
+
+def test_cardio_rejects_bad_input(env):
+    client, _, db = env
+    before = ids(db)
+    for data in ({"modality": "", "minutes": "20"}, {"modality": "skydiving", "minutes": "20"},
+                 {"modality": "run", "minutes": "abc"}, {"modality": "run", "minutes": "-5"},
+                 {"modality": "run", "minutes": "20", "kcal": "inf"}, {"modality": "run", "minutes": "20",
+                                                                       "effort": "extreme"},
+                 {"modality": "treadmill_incline_walk", "minutes": "20", "incline": "45"},
+                 {"modality": "run", "minutes": "20", "day": "2026-09-29"},
+                 {"modality": "run", "minutes": "1e9"}, {"modality": "run", "minutes": "20", "kcal": "9999"}):
+        assert "error=" in post(client, "cardio", data, "diary"), data
+    assert new_events(db, before, "cardio_logged") == []
 
 
 def test_daily_target_hit_and_missed(env, cfg):

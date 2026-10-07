@@ -6,6 +6,8 @@
   "max_tokens": 16000,
   "max_tool_rounds": 6,
   "knowledge_top_k": 4,
+  "logging_gap_days": 7,
+  "_logging_gap_days": "days (ending today) checked for missing weigh-ins, daily targets and check-ins; Mr. J tells the client which days are missing (owner request 2026-10-07)",
   "refusal_fallbacks": "default",
   "refusal_fallback_beta": "server-side-fallback-2026-07-01"
 }

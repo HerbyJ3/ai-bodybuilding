@@ -104,3 +104,54 @@
 .diary-table tbody th { width: 34%; font-weight: 600; }
 .diary-entry { border-top: 1px solid var(--line); padding-top: .75rem; margin-top: .75rem; }
 .diary-entry h3 { margin-top: 0; }
+
+/* Top of page: greeting on the left, Macro Targets widget in the top-right corner */
+.client-hero { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; margin: 8px 0 14px; }
+.client-hero h1 { margin: 0 0 4px; overflow-wrap: anywhere; }
+.client-hero .greeting p { margin: 0; }
+.macro-widget { width: 172px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 10px 12px; }
+.macro-widget h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; margin: 0; color: var(--ink-2); }
+.macro-widget .widget-day { margin: 2px 0 6px; }
+.macro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 0; }
+.macro-grid div { margin: 0; }
+.macro-grid dt { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.macro-grid dd { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.macro-grid dd span { font-size: .75rem; font-weight: 600; color: var(--muted); margin-left: 1px; }
+.widget-more { margin-top: 8px; font-size: .85rem; }
+.widget-more summary { cursor: pointer; color: var(--accent); min-height: 32px; display: flex; align-items: center; }
+.widget-more .target h3 { font-size: .85rem; margin: 8px 0 2px; }
+.widget-more .changes { padding-left: 1.1em; margin: 4px 0 0; }
+@media (min-width: 560px) { .macro-widget { width: 230px; } }
+
+/* Daily log extras */
+.optional { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
+.incline-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Mr. J chat: floating launcher in the bottom-right corner that opens a chat panel */
+.client-app main { padding-bottom: 104px; }
+.chat-widget { position: fixed; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column;
+  align-items: flex-end; }
+.chat-widget > summary { list-style: none; }
+.chat-widget > summary::-webkit-details-marker { display: none; }
+.chat-launcher { order: 2; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; min-height: 56px;
+  padding: 0 20px 0 16px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.chat-icon { font-size: 1.3rem; line-height: 1; }
+.chat-widget[open] .chat-label::after { content: " ✕"; }
+.chat-panel { order: 1; width: min(360px, calc(100vw - 32px)); max-height: min(70vh, 560px); margin-bottom: 10px;
+  display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 12px; overflow: hidden; }
+.chat-panel .chat-head { padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.chat-panel .messages { flex: 1; min-height: 120px; overflow-y: auto; }
+.chat-panel form { margin-top: 8px; }
+
+/* on phones the launcher is a round chat bubble (label hidden, still read by screen readers) */
+@media (max-width: 559px) {
+  .chat-launcher { width: 56px; height: 56px; padding: 0; justify-content: center; }
+  .chat-launcher .chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .chat-widget[open] .chat-icon::before { content: "✕"; }
+  .chat-widget[open] .chat-icon { font-size: 0; }
+  .chat-widget[open] .chat-icon::before { font-size: 1.3rem; }
+}

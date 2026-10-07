@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -104,8 +104,31 @@ def user_profile(state: ClientState, include_internal: bool = True) -> dict[str,
     return prof
 
 
+def logging_gaps(events: list[Event], as_of: date, days: int) -> dict[str, Any]:
+    """Which of the last `days` days (ending `as_of`) have no weigh-in, daily target or check-in,
+    so Mr. J can tell the client what is missing and that he is estimating from what was logged."""
+    window = [as_of - timedelta(days=i) for i in range(days - 1, -1, -1)]
+    logged: dict[str, set[date]] = {"weigh_in": set(), "daily_target": set(), "check_in": set()}
+    for e in events:
+        if e.type == "weigh_in":
+            logged["weigh_in"].add(e.day)
+        elif e.type == "macro_adherence_logged":
+            logged["daily_target"].add(e.payload.date)
+        elif e.type == "weekly_checkin":
+            logged["check_in"].add(e.day)
+    missing = {kind: [d.isoformat() for d in window if d not in got] for kind, got in logged.items()}
+    return {
+        "window": f"{window[0].isoformat()} to {as_of.isoformat()} ({days} days, today included)",
+        "today": as_of.isoformat(),
+        "missing_days": missing,
+        "days_with_nothing_logged": [d.isoformat() for d in window
+                                     if all(d not in got for got in logged.values())],
+    }
+
+
 def session_log(state: ClientState, approved: list[Event], findings: list[dict[str, str]],
-                max_decisions: int = 5, include_internal: bool = True) -> dict[str, Any]:
+                max_decisions: int = 5, include_internal: bool = True,
+                gaps: dict[str, Any] | None = None) -> dict[str, Any]:
     decisions = []
     for e in approved[:max_decisions]:
         p = e.payload.proposal or {}
@@ -128,6 +151,8 @@ def session_log(state: ClientState, approved: list[Event], findings: list[dict[s
         "checkin_scales": "hunger/energy 1=low, 3=mid, 5=high; sleep_hours = hours slept",
         "daily_macro_adherence": state.macro_adherence,
     }
+    if gaps is not None:
+        log["logging_this_week"] = gaps
     if include_internal:
         log["history_review_findings"] = [f"[{f['area']}] {f['finding']}" for f in findings]
     return log
@@ -145,10 +170,12 @@ def fill(template: str, values: dict[str, str]) -> str:
 
 def build_system_prompt(coach_name: str, state: ClientState, approved: list[Event],
                         findings: list[dict[str, str]], knowledge: list[Chunk],
-                        template_path: Path = TEMPLATE_PATH, include_internal: bool = True) -> str:
+                        template_path: Path = TEMPLATE_PATH, include_internal: bool = True,
+                        gaps: dict[str, Any] | None = None) -> str:
     return fill(template_path.read_text(encoding="utf-8"), {
         "COACH_NAME": coach_name,
         "USER_PROFILE": to_yaml(user_profile(state, include_internal)),
-        "SESSION_LOG": to_yaml(session_log(state, approved, findings, include_internal=include_internal)),
+        "SESSION_LOG": to_yaml(session_log(state, approved, findings, include_internal=include_internal,
+                                           gaps=gaps)),
         "KNOWLEDGE": "\n\n".join(c.render() for c in knowledge) or "(no matching passages)",
     })
