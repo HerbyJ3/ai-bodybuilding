@@ -178,7 +178,7 @@
 
 <section class="card chat" id="chat">
   <h2>Chat with Mr. J</h2>
-  <p class="muted small">Your coach can see this chat.</p>
+  <p class="muted small">Your coach can see this chat. Mr. J runs on Claude, an AI service from Anthropic, so your messages are sent there to be answered.</p>
   <div class="messages">
     {% if not chat %}<p class="muted">Ask Mr. J about your plan, your targets or a change your coach approved.</p>{% endif %}
     {% for m in chat %}<div class="msg {{ 'user' if m.role == 'user' else 'assistant' }}"><div class="msg-body">{{ m.content }}</div></div>{% endfor %}

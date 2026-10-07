@@ -166,3 +166,19 @@ def test_earlier_day_date_left_blank_so_server_today_applies(env):
         f = form(html, f"/c/{CID}/{path}")
         when = f.split('name="when"')[1].split(">")[0]
         assert f'max="{TODAY.isoformat()}"' in when and "value=" not in when
+
+
+def test_coach_logged_checkin_notes_not_prefilled_for_client(env):
+    from schemas.events import Source, make_event
+    client, _, db = env
+    EventStore(db).append([make_event(CID, "weekly_checkin", TODAY,
+                                      {"hunger": 3, "energy": 3, "notes": "SYNTH-COACH-NOTE"}, Source.coach)])
+    html = client.get(f"/c/{CID}").text
+    assert "Saved for today" in html and "SYNTH-COACH-NOTE" not in html
+    client.post(f"/c/{CID}/checkin", data={"hunger": "low", "energy": "mid", "notes": "SYNTH-MY-NOTE"})
+    assert 'value="SYNTH-MY-NOTE"' in client.get(f"/c/{CID}").text
+
+
+def test_chat_says_messages_go_to_claude(env):
+    client, _, _ = env
+    assert "Anthropic" in section(client.get(f"/c/{CID}").text, "chat")

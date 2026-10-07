@@ -68,6 +68,14 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
             raise ValueError("that date is in the future")
         return w
 
+    def _own_checkin(events, st, d):
+        """Today's check-in for the form; notes only if the client wrote them (coach notes stay private)."""
+        ci = next((c for c in st.checkins_recent if c["date"] == d), None)
+        latest = [e for e in events if e.type == "weekly_checkin" and e.day == d]
+        if ci and latest and latest[-1].source != Source.client:
+            ci = {**ci, "notes": None}
+        return ci
+
     @app.get("/", response_class=HTMLResponse)
     def pick(request: Request):
         return tpl.TemplateResponse(request, "pick.html", {"clients": list(find_clients(data_dir))})
@@ -94,7 +102,7 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
             "cid": cid, "today": d.isoformat(), "state": st,
             "chart": weight_svg(series, []), "series": series,
             "targets": targets, "changes": changes,
-            "checkin_today": next((c for c in st.checkins_recent if c["date"] == d), None),
+            "checkin_today": _own_checkin(events, st, d),
             "training_type": training_day_type(st.current_macros),
             "chat": ChatStore(store, "client").history(cid),
             "support": SupportStore(store).thread(cid),
