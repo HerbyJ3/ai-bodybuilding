@@ -30,6 +30,11 @@ from store.event_store import EventStore
 
 HERE = Path(__file__).resolve().parent
 
+# Looks a client can pick in Settings (value, label, one-line note); CSS lives in static/styles.css.
+CLIENT_STYLES: list[tuple[str, str, str]] = [
+    ("classic", "Classic", "Calm slate and sand (default)"),
+]
+
 
 def create_client_app(data_dir: Path, cfg: Config | None = None,
                       llm_factory: Callable[[], Any] = _default_llm,
@@ -44,6 +49,7 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
     tpl.env.globals["asset"] = asset_url
     tpl.env.globals["level_name"] = level_name
     tpl.env.globals["off_by_choices"] = OFF_BY_CHOICES
+    tpl.env.globals["client_styles"] = CLIENT_STYLES
     tpl.env.globals["weekday"] = lambda iso: date.fromisoformat(iso[:10]).strftime("%A")
 
     def client(cid: str) -> tuple[ClientRef, EventStore]:
