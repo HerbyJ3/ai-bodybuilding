@@ -100,13 +100,15 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
             raise ValueError("that date is in the future")
         return w
 
-    def _number(value: str, what: str) -> float:
+    def _number(value: str, what: str, most: float | None = None) -> float:
         try:
             x = float(value)
         except ValueError:
             raise ValueError(f"{what} must be a number")
         if not math.isfinite(x) or x < 0:
             raise ValueError(f"{what} must be a positive number")
+        if most is not None and x > most:
+            raise ValueError(f"{what} must be at most {most:g}")
         return x
 
     def diary_day(value: str) -> date:
@@ -202,10 +204,10 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
                 raise ValueError("pick a cardio type")
             if effort not in EFFORT:
                 raise ValueError("effort must be easy, moderate or hard")
-            payload: dict[str, Any] = {"date": d, "modality": modality, "minutes": _number(minutes, "time"),
+            payload: dict[str, Any] = {"date": d, "modality": modality, "minutes": _number(minutes, "time", 600),
                                        "intensity": EFFORT[effort]}
             if kcal.strip():
-                payload["est_kcal"] = _number(kcal, "calories burned")
+                payload["est_kcal"] = _number(kcal, "calories burned", 3000)
             if modality == "treadmill_incline_walk":
                 if incline.strip():
                     payload["incline_pct"] = _number(incline, "incline")

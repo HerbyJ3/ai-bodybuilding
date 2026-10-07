@@ -187,7 +187,8 @@ def test_cardio_rejects_bad_input(env):
                  {"modality": "run", "minutes": "20", "kcal": "inf"}, {"modality": "run", "minutes": "20",
                                                                        "effort": "extreme"},
                  {"modality": "treadmill_incline_walk", "minutes": "20", "incline": "45"},
-                 {"modality": "run", "minutes": "20", "day": "2026-09-29"}):
+                 {"modality": "run", "minutes": "20", "day": "2026-09-29"},
+                 {"modality": "run", "minutes": "1e9"}, {"modality": "run", "minutes": "20", "kcal": "9999"}):
         assert "error=" in post(client, "cardio", data, "diary"), data
     assert new_events(db, before, "cardio_logged") == []
 
