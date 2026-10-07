@@ -5,8 +5,8 @@
 {{KNOWLEDGE}}     top-k chunks from retrieval
 Pending proposals are never included: the LLM may only present approved changes.
 `include_internal=False` (the client app) also drops coach-only text: coach notes on decisions,
-notes on macro-target changes, and history-review findings (OPEN_ITEMS: the client sees the change
-and date only).
+notes on macro-target changes, notes the coach typed into a check-in, and history-review
+findings (OPEN_ITEMS: the client sees the change and date only).
 """
 from __future__ import annotations
 
@@ -117,7 +117,9 @@ def session_log(state: ClientState, approved: list[Event], findings: list[dict[s
         decisions.append(d)
     checkins = [{"date": c["date"].isoformat() if isinstance(c["date"], date) else c["date"],
                  **{k: c.get(k) for k in ("adherence_pct", "hunger", "energy", "sleep", "sleep_hours",
-                                          "training_feel", "notes") if c.get(k) not in (None, "")}}
+                                          "training_feel", "notes") if c.get(k) not in (None, "")
+                    # notes the coach typed into a check-in are internal; the client's own notes are not
+                    and (k != "notes" or include_internal or c.get("source") == "client")}}
                 for c in state.checkins_recent[:2]]
     log = {
         "note": "Only coach-APPROVED changes are listed. Present nothing else as a plan change.",

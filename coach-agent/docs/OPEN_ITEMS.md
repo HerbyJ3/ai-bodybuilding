@@ -21,11 +21,12 @@
 - [ ] Do coach notes on approved decisions show to the client? Prototype default: no, the client sees the change and date only (notes may be internal)
 - [ ] Should Mr. J flag support topics to the coach automatically? Prototype default: no, Mr. J only tells the client to use "Message your coach"
 
-Found while building the prototype (owner to decide):
-- [ ] **Client weight chart hides weigh-ins flagged by data quality**, the same as the coach chart. Proposed: show all weigh-ins to the client (a missing reading they just logged looks like a bug)
-- [ ] **Training-feel labels for clients** are "Crap / Good / Fantastic" (same as the dashboard). Proposed for clients: "Rough / Good / Great"
-- [ ] **Message times show in UTC.** Proposed: show the client's local time
-- [ ] **What client Mr. J may see:** limitation descriptions and check-in notes typed by the coach still go into the client app's Mr. J prompt, and Mr. J sees the engine's reasoning for each change. Decide whether any of this is internal and should be left out
+Found while building the prototype (owner decisions 2026-10-07):
+- [x] **Client weight chart shows every weigh-in**, including ones data quality flags; the flags and exclusions stay on the coach chart only
+- [x] **Training-feel labels for clients:** "Rough / Good / Great" (stored values unchanged; the dashboard keeps its labels)
+- [x] **Message times show in the viewer's local time** (stored in UTC; both apps)
+- [x] **What client Mr. J may see:** limitations **stay** (hard constraints). Check-in notes the coach typed are left out of the client app's prompt; the client's own check-in notes stay
+- [ ] Engine's short reason for each change is still given to client Mr. J (owner did not ask to hide it; revisit if it reads as internal)
 - [ ] **Before hosting** (with logins): client ids must not be real names, and the client pick page must sit behind logins; the confirmation banner text comes from the web address today, switch to fixed message codes; history-review findings still steer which book passages client Mr. J looks up (low risk, findings themselves are not shown)
 
 ## Deferred

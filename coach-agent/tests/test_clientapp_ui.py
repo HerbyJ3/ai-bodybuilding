@@ -182,3 +182,31 @@ def test_coach_logged_checkin_notes_not_prefilled_for_client(env):
 def test_chat_says_messages_go_to_claude(env):
     client, _, _ = env
     assert "Anthropic" in section(client.get(f"/c/{CID}").text, "chat")
+
+
+def test_client_training_feel_labels_are_soft(env):
+    client, _, _ = env
+    f = form(client.get(f"/c/{CID}").text, f"/c/{CID}/checkin")
+    assert '>Rough<' in f and '>Great<' in f and "Crap" not in f and "Fantastic" not in f
+    assert 'value="crap"' in f  # stored values unchanged
+
+
+def test_message_times_marked_for_local_time(env):
+    client, admin, db = env
+    SupportStore(EventStore(db)).add(CID, "client", "SYNTH-HELLO")
+    for html in (client.get(f"/c/{CID}").text, admin.get(f"/client/{CID}?as_of={AS_OF}").text):
+        assert '<time class="local-time" datetime="' in html
+    assert "toLocaleString" in client.get("/app-static/client.js").text
+    assert "toLocaleString" in admin.get("/static/ui.js").text
+
+
+def test_client_chart_shows_weigh_ins_the_coach_chart_flags(env):
+    from schemas.events import Source, make_event
+    client, admin, db = env
+    store = EventStore(db)
+    w = [e for e in store.read(CID) if e.type == "weigh_in"][-1].payload.weight
+    store.append([make_event(CID, "weigh_in", TODAY, {"weight": w + 40, "unit": "lb",
+                                                      "conditions": "unspecified"}, Source.client)])
+    data = lambda html: html.split('id="weight-data">')[1].split("</script>")[0]
+    assert TODAY.isoformat() in data(client.get(f"/c/{CID}").text)
+    assert TODAY.isoformat() not in data(admin.get(f"/client/{CID}?as_of={TODAY}").text)

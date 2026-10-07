@@ -222,7 +222,7 @@
         {% if not support %}<p class="muted">No messages yet.</p>{% endif %}
         {% for m in support %}
           <div class="msg {{ 'user' if m.sender == 'coach' else 'assistant' }}{% if m.sender == 'client' and not m.read_at %} unread{% endif %}">
-            <div class="msg-meta small">{{ "You" if m.sender == "coach" else "Client" }} · {{ m.created_at[:16]|replace("T", " ") }}{% if m.sender == "client" and not m.read_at %} · new{% endif %}</div>
+            <div class="msg-meta small">{{ "You" if m.sender == "coach" else "Client" }} · <time class="local-time" datetime="{{ m.created_at }}">{{ m.created_at[:16]|replace("T", " ") }} UTC</time>{% if m.sender == "client" and not m.read_at %} · new{% endif %}</div>
             <div class="msg-body">{{ m.content }}</div>
           </div>
         {% endfor %}
@@ -239,7 +239,7 @@
           {% if not client_chat %}<p class="muted">The client hasn't chatted with Mr. J yet.</p>{% endif %}
           {% for m in client_chat %}
             <div class="msg {{ 'user' if m.role == 'user' else 'assistant' }}">
-              <div class="msg-meta small">{{ "Client" if m.role == "user" else "Mr. J" }} · {{ m.created_at[:16]|replace("T", " ") }}</div>
+              <div class="msg-meta small">{{ "Client" if m.role == "user" else "Mr. J" }} · <time class="local-time" datetime="{{ m.created_at }}">{{ m.created_at[:16]|replace("T", " ") }} UTC</time></div>
               <div class="msg-body">{{ m.content }}</div>
             </div>
           {% endfor %}

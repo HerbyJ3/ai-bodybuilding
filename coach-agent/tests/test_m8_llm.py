@@ -296,3 +296,21 @@ def test_cli_prompt_offline(tmp_path):
     assert r.invoke(app, ["onboard", str(SAMPLE / "onboarding.json"), "--db", db]).exit_code == 0
     out = r.invoke(app, ["prompt", CID, "2026-09-28", "--db", db])
     assert out.exit_code == 0 and "You are Mr. J" in out.output
+
+
+def test_client_app_prompt_keeps_client_checkin_notes_but_not_coach_ones(store, cfg):
+    from datetime import timedelta
+
+    from schemas.events import make_event
+    store.append([
+        make_event(CID, "weekly_checkin", AS_OF - timedelta(days=1),
+                   {"hunger": 3, "energy": 3, "notes": "SYNTH-CLIENT-CHECKIN-NOTE"}, "client"),
+        make_event(CID, "weekly_checkin", AS_OF,
+                   {"hunger": 3, "energy": 3, "notes": "SYNTH-COACH-CHECKIN-NOTE"}, "coach")])
+    app = _audience_session(store, cfg, "client_app").system
+    assert "SYNTH-CLIENT-CHECKIN-NOTE" in app and "SYNTH-COACH-CHECKIN-NOTE" not in app
+    for audience in ("coach", "client"):
+        s = _audience_session(store, cfg, audience).system
+        assert "SYNTH-CLIENT-CHECKIN-NOTE" in s and "SYNTH-COACH-CHECKIN-NOTE" in s
+    # limitations stay in every prompt: they are hard constraints (owner decision 2026-10-07)
+    assert "limitations:" in app

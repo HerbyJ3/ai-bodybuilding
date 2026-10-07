@@ -47,7 +47,7 @@
 {%- endmacro %}
 
 {% macro sent_line(m, who) -%}
-  {{ who }} · {{ nice_date(m.created_at) }}{% if m.created_at|length >= 16 %}, {{ m.created_at[11:16] }}{% endif %}
+  {{ who }} · <time class="local-time" datetime="{{ m.created_at }}">{{ nice_date(m.created_at) }}{% if m.created_at|length >= 16 %}, {{ m.created_at[11:16] }} UTC{% endif %}</time>
 {%- endmacro %}
 
 {% block topbar %}<a class="switch small" href="/">Not {{ cid }}?</a>{% endblock %}
@@ -133,7 +133,7 @@
       {% endmacro %}
       {{ dropdown("Hunger", "hunger", [("low", "Low"), ("mid", "Mid"), ("high", "High")], lv.get(ci.hunger), true) }}
       {{ dropdown("Energy", "energy", [("low", "Low"), ("mid", "Mid"), ("high", "High")], lv.get(ci.energy), true) }}
-      {{ dropdown("How training feels", "training_feel", [("crap", "Crap"), ("good", "Good"), ("fantastic", "Fantastic")], ci.training_feel) }}
+      {{ dropdown("How training feels", "training_feel", [("crap", "Rough"), ("good", "Good"), ("fantastic", "Great")], ci.training_feel) }}
       {% set hours = [] %}{% for h in range(8, 0, -1) %}{% set _ = hours.append((h, h ~ " hour" ~ ("s" if h > 1 else ""))) %}{% endfor %}
       {{ dropdown("Sleep last night", "sleep_hours", hours, ci.sleep_hours|int if ci.sleep_hours else none) }}
       <label>Notes

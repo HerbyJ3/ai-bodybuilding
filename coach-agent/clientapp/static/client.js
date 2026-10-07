@@ -44,3 +44,10 @@
     target.scrollIntoView();
   }
 })();
+
+// Message times are stored in UTC; show them in this device's local time.
+document.querySelectorAll("time.local-time").forEach(t => {
+  const d = new Date(t.dateTime);
+  if (!isNaN(d)) t.textContent = d.toLocaleString(undefined,
+    {month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit"});
+});

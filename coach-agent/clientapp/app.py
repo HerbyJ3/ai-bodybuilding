@@ -22,7 +22,6 @@ from dashboard.app import (HERE as DASHBOARD_DIR, MACRO_KEYS, OFF_BY_CHOICES, _d
                            error_text, level_name, training_day_type, weigh_in_payload)
 from dashboard.charts import weight_series, weight_svg
 from dashboard.store import ChatStore, ClientRef, SupportStore, find_clients
-from engine import data_quality
 from engine.nutrition.macros import kcal_of
 from engine.state_builder import build_state
 from schemas.events import Source, make_event
@@ -71,8 +70,7 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
     def _own_checkin(events, st, d):
         """Today's check-in for the form; notes only if the client wrote them (coach notes stay private)."""
         ci = next((c for c in st.checkins_recent if c["date"] == d), None)
-        latest = [e for e in events if e.type == "weekly_checkin" and e.day == d]
-        if ci and latest and latest[-1].source != Source.client:
+        if ci and ci.get("source") != Source.client.value:
             ci = {**ci, "notes": None}
         return ci
 
@@ -86,8 +84,8 @@ def create_client_app(data_dir: Path, cfg: Config | None = None,
         d = today()
         events = store.read(cid)
         st = build_state(events, d, cfg)
-        excluded = data_quality.assess(events, d, cfg).excluded_event_ids  # same chart as the coach's
-        series = weight_series(events, d, excluded, cfg.nutrition("tracking.weigh_ins_per_week")[0])
+        # Every weigh-in the client logged is shown; data-quality exclusions stay on the coach's chart.
+        series = weight_series(events, d, set(), cfg.nutrition("tracking.weigh_ins_per_week")[0])
         targets = [{"day_type": k, "protein_g": round(m.protein_g), "carb_g": round(m.carb_g),
                     "fat_g": round(m.fat_g), "kcal": round(kcal_of(m, cfg))}
                    for k, m in (st.current_macros or {}).items()]
