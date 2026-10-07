@@ -20,7 +20,8 @@
     };</script>
   <script>/* apply the saved look before the page paints (per device; nothing leaves the browser) */
     try { var s = localStorage.getItem("mrj-style"), m = localStorage.getItem("mrj-mode");
-      if (s && s !== "classic") { document.documentElement.dataset.style = s; window.mrjFonts && mrjFonts(s); }
+      if (s === "studio-calm" || s === "night-session" || s === "retro-84") {
+        document.documentElement.dataset.style = s; window.mrjFonts && mrjFonts(s); }
       if (m === "light" || m === "dark") document.documentElement.dataset.theme = m; } catch (e) {}</script>
 </head>
 <body class="client-app">
@@ -42,7 +43,7 @@
             <label><input type="radio" name="mode" value="light"> Light</label>
             <label><input type="radio" name="mode" value="dark"> Dark</label>
           </fieldset>
-          <p class="small muted">Saved on this device only.</p>
+          <p class="small muted">Saved on this device only. Looks other than Classic load their fonts from Google Fonts.</p>
         </div>
       </details>
     </div>

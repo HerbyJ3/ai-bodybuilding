@@ -13,7 +13,7 @@
 - [x] Clients **talk to Mr. J directly**; clients message the coach **only for support issues**
 - [x] To the client, **Mr. J is the coach**; the owner is the admin/real coach behind the scenes and appears only as "Support" (2026-10-07)
 - [x] Client looks in Settings: Classic (default), Studio Calm, Night Session, Retro '84 (2026-10-07)
-- [ ] Looks other than Classic fetch fonts from Google Fonts when picked (the client's browser contacts Google); self-host the fonts before the hosted beta
+- [ ] Looks other than Classic fetch fonts from Google Fonts when picked (the client's browser contacts Google); self-host the fonts before the hosted beta; when hosting, also add a strict Referrer-Policy and a Content-Security-Policy (inline scripts need a nonce or hash)
 - [ ] Client terms / privacy policy should say plainly that a human team reviews plan changes ("Mr. J updated your plan" credits the AI); the app already says Mr. J is an AI and the support team can see the chat
 - [x] First client features: weigh-in, Daily Target, check-in, approved targets, weight chart, coach messages
 - [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
