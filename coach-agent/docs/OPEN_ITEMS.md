@@ -12,6 +12,7 @@
 - [x] Current dashboard = **coach/admin view**; most logging moves to a **client app**
 - [x] Clients **talk to Mr. J directly**; clients message the coach **only for support issues**
 - [x] To the client, **Mr. J is the coach**; the owner is the admin/real coach behind the scenes and appears only as "Support" (2026-10-07)
+- [ ] Client terms / privacy policy should say plainly that a human team reviews plan changes ("Mr. J updated your plan" credits the AI); the app already says Mr. J is an AI and the support team can see the chat
 - [x] First client features: weigh-in, Daily Target, check-in, approved targets, weight chart, coach messages
 - [ ] Hosting, logins, DB encryption, privacy policy, consent and account deletion (required before real clients go online)
 - [ ] Form-forgery (CSRF) protection on both apps: any web page open in the browser can post to the local apps today (adds events, spends API credit on chat). Add with logins, before hosting

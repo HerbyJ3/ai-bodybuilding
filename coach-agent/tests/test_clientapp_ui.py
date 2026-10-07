@@ -254,3 +254,12 @@ def test_client_chart_shows_weigh_ins_the_coach_chart_flags(env):
     data = lambda html: html.split('id="weight-data">')[1].split("</script>")[0]
     assert TODAY.isoformat() in data(client.get(f"/c/{CID}").text)
     assert TODAY.isoformat() not in data(admin.get(f"/client/{CID}?as_of={TODAY}").text)
+
+
+def test_diary_day_hides_coach_typed_checkin_notes(env):
+    from schemas.events import Source, make_event
+    client, _, db = env
+    EventStore(db).append([make_event(CID, "weekly_checkin", date(2026, 9, 21),
+                                      {"hunger": 3, "energy": 3, "notes": "SYNTH-COACH-DAY-NOTE"}, Source.coach)])
+    html = client.get(f"/c/{CID}?day=2026-09-21").text
+    assert "Hunger Mid, energy Mid" in html and "SYNTH-COACH-DAY-NOTE" not in html

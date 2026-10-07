@@ -94,7 +94,7 @@ def open_session(store: EventStore, cfg: Config, client_id: str, as_of: date, ll
     """`history`: earlier turns as [{"role": "user"|"assistant", "content": text}], so a saved
     conversation can continue. `audience` frames who Mr. J is talking to: "coach" (dashboard, CLI
     chat), "client" (default; CLI check-in drafts and evals, which the coach reviews) or
-    "client_app" (the client app: points support to "Message your coach" and leaves out coach-only
+    "client_app" (the client app: points support to "Contact support" and leaves out coach-only
     notes and history-review findings)."""
     if audience not in AUDIENCES:
         raise ValueError(f"unknown audience {audience!r}")
