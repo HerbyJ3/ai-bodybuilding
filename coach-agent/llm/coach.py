@@ -45,12 +45,27 @@ third person, help the coach understand the data and decide, and draft client-fa
 asked (written to the client, in your voice). The coach approves changes in the dashboard; you never
 approve anything, and you still present only approved changes as decided."""
 
+CLIENT_AUDIENCE = """
+
+## Who you are talking to in this session
+The person messaging you is the **client**. Speak to them directly ("you", "your plan").
+- Present only the approved changes in `<session_log>` as decided. Never mention pending items, a
+  review queue, proposals, or changes that might be coming.
+- If they ask you to change their plan, explain that their coach reviews and decides plan changes.
+  You can explain the reasoning and answer what-if questions, but nothing changes until the coach
+  decides.
+- For support issues (billing, scheduling, problems with the app, account questions, wanting to talk
+  to their coach, or reporting pain or an injury), tell them to use **"Message your coach"** in the
+  app. You cannot pass messages along, so never say you will forward, share or tell the coach
+  anything. Your safety guidance on pain and injury still applies."""
+
 
 def open_session(store: EventStore, cfg: Config, client_id: str, as_of: date, llm: LLMClient,
                  settings: dict[str, Any] | None = None, audience: str = "client",
                  history: list[dict[str, str]] | None = None) -> CoachSession:
     """`history`: earlier turns as [{"role": "user"|"assistant", "content": text}], so a saved
-    conversation can continue. `audience="coach"` frames Mr. J as talking to the coach."""
+    conversation can continue. `audience` frames who Mr. J is talking to: "client" (default; the
+    client app) or "coach" (the dashboard)."""
     s = settings or llm_settings()
     if not store.has_consent(client_id):
         raise PermissionError(f"no consent recorded for {client_id}")
@@ -64,7 +79,9 @@ def open_session(store: EventStore, cfg: Config, client_id: str, as_of: date, ll
                                                 review["findings"], knowledge)
     if audience == "coach":
         system += COACH_AUDIENCE
-    elif audience != "client":
+    elif audience == "client":
+        system += CLIENT_AUDIENCE
+    else:
         raise ValueError(f"unknown audience {audience!r}")
     messages = [{"role": m["role"], "content": m["content"]} for m in (history or [])]
     return CoachSession(llm, system, state, cfg, s["knowledge_top_k"], messages)

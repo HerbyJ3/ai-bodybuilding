@@ -9,7 +9,7 @@ from approvals.queue import ApprovalQueue
 from ingest.onboarding import load_onboarding_config, onboard
 from llm import prompt_builder, retrieval
 from llm.client import REFUSAL_TEXT, ClaudeClient
-from llm.coach import CHECKIN_REQUEST, open_session
+from llm.coach import CHECKIN_REQUEST, CLIENT_AUDIENCE, COACH_AUDIENCE, open_session
 from llm.settings import llm_settings
 from llm.tools import TOOLS, ToolError, run_tool
 from store.event_store import EventStore
@@ -104,6 +104,57 @@ def test_approved_change_reaches_prompt(store, cfg):
     session, _ = _session(store, cfg, [])
     assert "change: decrease_calories" in session.system
     assert "coach_note: start Monday" in session.system
+
+
+def _audience_session(store, cfg, audience):
+    return open_session(store, cfg, CID, AS_OF, ClaudeClient(llm_settings(), client=FakeAnthropic([])),
+                        audience=audience)
+
+
+def test_client_audience_block_only_in_client_prompt(store, cfg):
+    client = _audience_session(store, cfg, "client").system
+    coach = _audience_session(store, cfg, "coach").system
+    assert client.endswith(CLIENT_AUDIENCE) and CLIENT_AUDIENCE not in coach
+    assert coach.endswith(COACH_AUDIENCE) and COACH_AUDIENCE not in client
+    assert _audience_session(store, cfg, "client").system == open_session(  # default is the client
+        store, cfg, CID, AS_OF, ClaudeClient(llm_settings(), client=FakeAnthropic([]))).system
+    flat = " ".join(client.split())
+    for must in ("is the **client**", "Speak to them directly", "approved changes",
+                 "Never mention pending items", "coach reviews and decides plan changes",
+                 'use **"Message your coach"** in the app', "billing", "scheduling",
+                 "problems with the app", "account questions", "talk to their coach",
+                 "pain or an injury", "never say you will forward"):
+        assert must in flat, must
+    with pytest.raises(ValueError):
+        _audience_session(store, cfg, "public")
+
+
+def test_client_audience_keeps_system_guardrails(store, cfg):
+    client = _audience_session(store, cfg, "client").system
+    template = prompt_builder.TEMPLATE_PATH.read_text(encoding="utf-8")
+    hard = template[template.index("## Hard boundaries"):].replace("{{COACH_NAME}}", "Mr. J")
+    assert hard.strip() in client
+
+
+def test_client_prompt_shows_approved_change_but_not_pending(store, cfg):
+    from schemas.proposals import new_proposal
+    q = ApprovalQueue(store, cfg)
+    q.refresh(CID, AS_OF)
+    [calorie] = q.pending(CID)
+    q.decide(calorie.proposal.proposal_id, "approved", "start Monday",
+             at=datetime(2026, 9, 28, 9, tzinfo=timezone.utc))
+    seeded = new_proposal(CID, AS_OF, "test.seeded_pending", "volume.chest", "add_sets",
+                          "SEEDED-PENDING-RATIONALE", current_value=10, proposed_value=12)
+    with store._db:
+        store._db.execute("INSERT INTO proposals VALUES (?,?,?,?,?)",
+                          (seeded.proposal_id, CID, seeded.created_at.isoformat(), seeded.target,
+                           seeded.model_dump_json()))
+    assert [i.proposal.proposal_id for i in q.pending(CID)] == [seeded.proposal_id]
+    for audience in ("client", "coach"):
+        s = _audience_session(store, cfg, audience).system
+        assert "change: decrease_calories" in s and "coach_note: start Monday" in s
+        assert "SEEDED-PENDING-RATIONALE" not in s and seeded.proposal_id not in s
+        assert "add_sets" not in s and "volume.chest" not in s
 
 
 def test_session_requires_consent(cfg):
