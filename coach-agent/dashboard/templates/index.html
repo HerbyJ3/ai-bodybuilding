@@ -23,7 +23,8 @@
     {% set st = c.state %}
     <a class="card client-card" href="/client/{{ c.id }}?as_of={{ as_of }}">
       <div class="row space"><h3>{{ c.id }}</h3>
-        {% if c.pending %}<span class="pill attention">{{ c.pending }} to review</span>{% endif %}</div>
+        <span class="row pills">{% if c.support_unread %}<span class="pill unread">{{ c.support_unread }} new message{{ "s" if c.support_unread > 1 }}</span>{% endif %}
+        {% if c.pending %}<span class="pill attention">{{ c.pending }} to review</span>{% endif %}</span></div>
       <p class="muted">{% if st.phase %}{{ st.phase.phase|capitalize }} · week {{ st.phase.week }}{% else %}No phase set{% endif %}</p>
       <dl class="stats">
         <div><dt>Weekly avg</dt><dd>{{ "%.1f"|format(st.weight.latest_avg_lb) if st.weight.latest_avg_lb else "–" }} lb</dd></div>

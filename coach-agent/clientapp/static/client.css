@@ -1,1 +1,84 @@
-/* Client app styles (placeholder; frontend-dev owns this file). Base styles come from /static/style.css. */
+/* Client app (BUILD_SPEC §15). Base styles, palette and light/dark tokens come from
+   /static/style.css; this file only adds the mobile-first single-column layout. */
+.client-app main { max-width: 640px; padding: 0 12px 48px; }
+.client-app .topbar { max-width: 640px; padding: 10px 12px; }
+.client-app .switch { color: var(--ink-2); padding: 12px 4px; min-height: 44px; display: inline-flex; align-items: center; }
+.client-app h1 { font-size: 1.5rem; margin-top: 8px; }
+.client-app .card { padding: 16px 14px; }
+.client-app .card h2 { font-size: 1.15rem; }
+
+/* sticky section nav */
+.section-nav { position: sticky; top: 0; z-index: 10; display: flex; gap: 2px; overflow-x: auto;
+  max-width: 640px; margin: 0 auto 8px; padding: 4px 8px; background: var(--page); border-bottom: 1px solid var(--line);
+  scrollbar-width: none; }
+.section-nav a { flex: 1 0 auto; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  padding: 0 6px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font-weight: 600; font-size: .88rem; }
+.section-nav a:hover, .section-nav a:focus-visible { background: var(--surface-2); color: var(--ink); }
+.client-app section[id] { scroll-margin-top: 64px; }
+
+/* notices */
+.banners { max-width: 640px; margin: 0 auto; padding: 0 12px; }
+.banners.in-section { padding: 0; margin: 4px 0 12px; }
+.banners .banner { margin-bottom: 8px; overflow-wrap: anywhere; }
+
+/* forms: large tap targets */
+.client-app input, .client-app select, .client-app textarea { min-height: 44px; font-size: 16px; }
+.client-app input[type=date] { width: 100%; }
+.client-app button, .client-app .btn { min-height: 44px; padding: 10px 18px; font-weight: 600; }
+.client-app label { font-weight: 600; font-size: .92rem; }
+.client-app label > input, .client-app label > select, .client-app label > .field { margin-top: 4px; font-weight: 400; }
+.stack { display: grid; gap: 12px; }
+.stack > button { width: 100%; }
+.weight-row { display: grid; grid-template-columns: minmax(0, 1fr) 6.5em; gap: 10px; }
+.earlier { margin: 0; } .earlier summary { min-height: 44px; display: flex; align-items: center; font-size: .9rem; }
+.earlier[open] summary { margin-bottom: 4px; }
+
+.choice { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice label { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--surface); cursor: pointer; font-size: 1rem; }
+.choice label:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--surface-2); }
+.choice input, .client-app .check input { width: 20px; height: 20px; min-height: 0; margin: 0; accent-color: var(--accent); }
+.client-app .check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.client-app .check:has(input:disabled) { color: var(--muted); }
+.off-by p { margin: 0 0 6px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 400px) { .grid-3 { grid-template-columns: 1fr; } }
+
+/* check-in dropdowns: the red x gets a full tap target */
+.client-app .field .clear { width: 40px; height: 40px; right: 2px; font-size: 22px; line-height: 38px; min-height: 0; padding: 0; }
+.client-app .field select { padding-right: 84px; background-position: calc(100% - 56px) 55%, calc(100% - 51px) 55%; }
+.client-app .field input { padding-right: 46px; }
+
+/* targets */
+.target { padding: 10px 0; border-bottom: 1px solid var(--line); } .target:last-of-type { border-bottom: 0; }
+.target h3 { margin: 0; }
+.stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 6px; }
+.stats.four dd { font-size: 1.05rem; }
+.changes { list-style: none; padding: 0; margin: 0; }
+.changes li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.changes li:last-child { border-bottom: 0; }
+
+/* chart: the SVG scales down on phones, so keep strokes, dots and labels readable */
+.client-app .legend { flex-wrap: wrap; gap: 6px 16px; }
+.client-app svg.chart { overflow: visible; }
+.client-app svg.chart .s1, .client-app svg.chart .grid, .client-app svg.chart .axis,
+.client-app svg.chart .marker, .client-app svg.chart .crosshair, .client-app svg.chart .s2 { vector-effect: non-scaling-stroke; }
+.client-app .tooltip { min-width: 0; max-width: 168px; }
+@media (max-width: 520px) {
+  .client-app svg.chart .tick { font-size: 22px; }
+  .client-app svg.chart .end-label { font-size: 24px; }
+  .client-app svg.chart circle.s2 { r: 10px; }
+}
+.client-app details table { font-size: .88rem; }
+
+/* threads */
+.client-app .chat .messages { max-height: 60vh; }
+.client-app .msg { max-width: 88%; overflow-wrap: anywhere; }
+
+/* pick page */
+.pick { margin-top: 12px; }
+.pick-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.pick-list a { display: flex; justify-content: space-between; align-items: center; min-height: 52px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; color: var(--ink); text-decoration: none; font-weight: 600; }
+.pick-list a:hover, .pick-list a:focus-visible { border-color: var(--accent); }
+.daily-form .target-line { margin: 0; }
