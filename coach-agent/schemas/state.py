@@ -16,7 +16,7 @@ class PhaseState(BaseModel):
     start_date: date
     week: int
     target_rate_pct_bw: float
-    planned_weeks: int
+    planned_weeks: int | None = None
     source: str
 
 

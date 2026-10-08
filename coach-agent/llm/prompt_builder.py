@@ -83,8 +83,9 @@ def user_profile(state: ClientState, include_internal: bool = True) -> dict[str,
     }
     if state.phase:
         prof["phase"] = {"phase": state.phase.phase, "week": state.phase.week,
-                         "planned_weeks": state.phase.planned_weeks,
                          "target_rate_pct_bw": state.phase.target_rate_pct_bw}
+        if state.phase.planned_weeks is not None:
+            prof["phase"]["planned_weeks"] = state.phase.planned_weeks
     if state.meso:
         m = state.meso
         prof["mesocycle"] = {"week": m.week, "weeks_planned": m.weeks_planned,

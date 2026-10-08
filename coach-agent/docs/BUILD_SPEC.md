@@ -150,7 +150,7 @@ Every event has `event_id`, `client_id`, `type`, `timestamp`, `source` (`client`
 | `weekly_checkin` | adherence_pct?, hunger (1–5), energy (1–5), sleep (1–5)?, sleep_hours?, training_feel (crap/good/fantastic)?, notes | Weekly (dashboard form or import) |
 | `macro_adherence_logged` | date, hit (bool), off_by {protein_g/carb_g/fat_g: ± grams}, day_type (e.g. non_training) | Daily, optional (dashboard "Daily Target") — gives adherence % when no check-in adherence |
 | `cardio_logged` | date, modality, minutes, intensity (low/mod/high), est_kcal (optional) | Each session |
-| `phase_started` | phase (gain/cut/maintenance/mini_cut/recomp), target_rate_pct_bw, planned_weeks | Coach action |
+| `phase_started` | phase (gain/cut/maintenance/mini_cut/recomp), target_rate_pct_bw, planned_weeks (optional; not every plan has a set length) | Coach action |
 | `meso_started` | meso_id, weeks_planned, exercises per muscle, starting sets per muscle | Coach action |
 | `proposal_decided` | proposal_id, decision (approved/rejected/modified), coach_note, proposal (snapshot), final_value | Coach action |
 | `consent_recorded` | granted, scope[], note | Before any ingest (§9) |
@@ -333,13 +333,13 @@ A client who arrives mid-phase and mid-mesocycle (e.g. moving from another app o
 - `client_id`, `as_of` (onboarding date)
 - `consent` (granted, scope). Onboarding refuses to ingest anything without it (§9)
 - `training_age` (optional)
-- `phase`: phase, target_rate_pct_bw, planned_weeks, **current_phase_week**
+- `phase`: phase, target_rate_pct_bw, planned_weeks (optional), **current_phase_week**
 - `meso`: meso_id, weeks_planned (accumulation weeks, deload excluded), **current_week**, **last_deload_date** (date the last deload week ended; `null` if unknown). Optional: exercises_per_muscle and starting_sets_per_muscle
 - `nutrition_targets` (optional): current macros per day type. Past macro adjustments are imported from CSV (`nutrition_targets_set` stream: one row per date and day type, grouped by date)
 - `limitations` (optional): injuries or conditions that restrict movement: limitation_id, area, description, restrictions[]. They are shown to Mr. J as hard constraints and listed in the history review
 - `meso` is optional. Without it, training rules stay inactive; this suits clients with no logged mesocycle structure
 - `past_mesos` (optional): meso_id, start_date, weeks_planned for completed mesos in the history. These enable cross-meso comparison in §14
-- `past_phases` (optional): phase, start_date, target_rate_pct_bw, planned_weeks
+- `past_phases` (optional): phase, start_date, target_rate_pct_bw, planned_weeks (optional)
 - `history`: CSV directory + column-mapping JSON (M6 format, see `ingest/csv_import.py`)
 
 ### 13.2 Flow (`ingest/onboarding.py`)
